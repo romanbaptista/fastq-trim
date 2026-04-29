@@ -1,2 +1,2 @@
 # trim
-Runs QC and trimming on compressed FASTQ files.
+Trims compressed FASTQ files.

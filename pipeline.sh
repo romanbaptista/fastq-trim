@@ -9,6 +9,7 @@ set -euo pipefail
 PIPELINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Export pipeline root path
 export PIPELINE_DIR
+
 # Define MODULES directory path
 MODULES_DIR="${PIPELINE_DIR}/modules"
 # Define OUTPUT directory path
@@ -25,28 +26,45 @@ source "${PIPELINE_DIR}/config.sh"
 echo
 echo "RUNNING trim pipeline..."
 echo "User configuration from config.sh:"
-echo "  Parameter 1:            $PARAMETER1"
-echo "  Parameter 2:            $PARAMETER2"
+echo "  Input directory:    ${INPUT_DIR}"
+echo "  Trimming method:    ${PACKAGE_TO_USE}"
 echo
 
-# Submit first job
-FIRST_JOB=$(
-    sbatch \
-    --parsable \
-    "${MODULES_DIR}/scriptname1.sh"
-)
+case "${PACKAGE_TO_USE}" in
 
-# Submit second job
-SECOND_JOB=$(
-    sbatch \
-    --parsable \
-    --dependency=afterok:"${FIRST_JOB}" \
-    "${MODULES_DIR}/scriptname2.sh"
-) || {
-    echo "  Failed to submit scriptname2.sh. Exiting..."
-    exit 1
-}
+    bbduk)
+        echo " Submitting BBDUK trimming job"
+
+        TRIMMING_JOB_ID=$(
+            sbatch \
+                --parsable \
+                --cpus-per-task="${BBDUK_CPUS}" \
+                --mem-per-cpu="${BBDUK_MEM_PER_CPU}" \
+                "${MODULES_DIR}/bbduk.sh"
+        )
+        ;;
+
+    trimmomatic)
+        echo "  Submitting Trimmomatic trimming job"
+
+        TRIMMING_JOB_ID=$(
+            sbatch \
+                --parsable \
+                --cpus-per-task="${TRIM_CPUS}" \
+                --mem-per-cpu="${TRIM_MEM_PER_CPU}" \
+                "${MODULES_DIR}/trimmomatic.sh"
+        )
+        ;;
+    
+    *)
+        echo "  ERROR: Invalid PACKAGE_TO_USE '${PACKAGE_TO_USE}'"
+        echo "  Valid options are: bbduk | trimmomatic"
+        exit 1
+        ;;
+esac
 
 echo
-echo "  Pipeline submitted successfully"
+echo "  Job submitted successfully"
+echo "  SLURM job ID: ${TRIMMING_JOB_ID}"
+echo "  User may now disconnect from the cluster if required"
 echo

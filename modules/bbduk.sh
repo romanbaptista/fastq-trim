@@ -14,8 +14,8 @@ source /etc/profile.d/modules.sh
 
 ######################### DIRECTORIES ####################
 
-# Define pipeline root path
-PIPELINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Navigate to pipeline root path
+cd "${PIPELINE_DIR}"
 # Define OUTPUT directory path
 OUTPUT_DIR="${PIPELINE_DIR}/output/bbduk"
 # Create output directory

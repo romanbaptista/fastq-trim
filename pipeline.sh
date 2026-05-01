@@ -64,7 +64,7 @@ case "${PACKAGE_TO_USE}" in
 esac
 
 echo
-echo "  Job submitted successfully"
-echo "  SLURM job ID: ${TRIMMING_JOB_ID}"
-echo "  User may now disconnect from the cluster if required"
+echo "Job submitted SUCCESSFULLY"
+echo "SLURM job ID: ${TRIMMING_JOB_ID}"
+echo "User may now disconnect from the cluster if required"
 echo

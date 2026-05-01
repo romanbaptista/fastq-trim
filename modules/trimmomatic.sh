@@ -3,8 +3,6 @@
 #SBATCH --output=/dev/null
 #SBATCH --error=/dev/null
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=5
-#SBATCH --mem-per-cpu=8G
 
 # Exit on error
 set -euo pipefail
@@ -17,7 +15,7 @@ source /etc/profile.d/modules.sh
 # Navigate to pipeline root path
 cd "${PIPELINE_DIR}"
 # Define OUTPUT directory path
-OUTPUT_DIR="${PIPELINE_DIR}/output/trimmomatic"
+OUTPUT_DIR="${PIPELINE_DIR}/output/trimmed"
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
 
@@ -69,6 +67,12 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
             echo "  ERROR: Missing FASTQ pair for ${SAMPLE_ID}"
             exit 1
         fi
+        
+        # Check for single pair of files
+        [[ ${#R1[@]} -ne 1 || ${#R2[@]} -ne 1 ]] && {
+        echo "ERROR: Expected exactly one FASTQ pair for ${SAMPLE_ID}"
+        exit 1
+        }
 
         # Define sample output directory
         SAMPLE_OUT_DIR="${OUTPUT_DIR}/${SAMPLE_ID}"

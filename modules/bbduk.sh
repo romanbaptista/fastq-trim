@@ -2,8 +2,6 @@
 #SBATCH --job-name=bbduk
 #SBATCH --output=/dev/null
 #SBATCH --error=/dev/null
-#SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=16G
 
 
 # Exit on error
@@ -17,7 +15,7 @@ source /etc/profile.d/modules.sh
 # Navigate to pipeline root path
 cd "${PIPELINE_DIR}"
 # Define OUTPUT directory path
-OUTPUT_DIR="${PIPELINE_DIR}/output/bbduk"
+OUTPUT_DIR="${PIPELINE_DIR}/output/trimmed"
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
 
@@ -43,6 +41,8 @@ ensure_bbtools
 BBDUK_PATH="${PIPELINE_DIR}/bbtools/bbduk.sh"
 BBDUK_ADAPTERS="${PIPELINE_DIR}/bbtools/resources/adapters.fa"
 
+NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+
 ######################### SCRIPT #########################
 
 # Iterate over folders in INPUT_DIR
@@ -62,6 +62,12 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
             echo "  ERROR: Missing FASTQ pair for ${SAMPLE_ID}"
             exit 1
         fi
+
+        # Check for single pair of files
+        [[ ${#R1[@]} -ne 1 || ${#R2[@]} -ne 1 ]] && {
+        echo "ERROR: Expected exactly one FASTQ pair for ${SAMPLE_ID}"
+        exit 1
+        }
 
         # Define sample output directory
         SAMPLE_OUT_DIR="${OUTPUT_DIR}/${SAMPLE_ID}"
@@ -98,7 +104,8 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
             hdist=1 \
             qtrim=rl \
             trimq="${BBDUK_TRIMQ}" \
-            minlen="${BBDUK_MINLEN}"
+            minlen="${BBDUK_MINLEN}" \
+            threads="${NUM_THREADS}"
 
         echo "bbduk.sh COMPLETE"
 

@@ -69,10 +69,10 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
         fi
         
         # Check for single pair of files
-        [[ ${#R1[@]} -ne 1 || ${#R2[@]} -ne 1 ]] && {
+        if [[ ${#R1[@]} -ne 1 || ${#R2[@]} -ne 1 ]]; then
         echo "ERROR: Expected exactly one FASTQ pair for ${SAMPLE_ID}"
         exit 1
-        }
+        fi
 
         # Define sample output directory
         SAMPLE_OUT_DIR="${OUTPUT_DIR}/${SAMPLE_ID}"

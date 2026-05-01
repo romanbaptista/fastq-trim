@@ -22,7 +22,6 @@ BBDUK_MEM_PER_CPU=16G
 # Quality trimming threshold. Bases with Phred quality < TRIMQ are trimmed
 # from the ends of reads (when qtrim is enabled). Lower values are more
 # conservative and help preserve coverage for variant calling.
-
 BBDUK_TRIMQ=10
 
 

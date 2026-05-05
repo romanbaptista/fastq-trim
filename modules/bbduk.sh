@@ -3,7 +3,6 @@
 #SBATCH --output=/dev/null
 #SBATCH --error=/dev/null
 
-
 # Exit on error
 set -euo pipefail
 

@@ -1,56 +1,48 @@
 #!/bin/bash
 #SBATCH --job-name=trimmomatic
-#SBATCH --output=/dev/null
-#SBATCH --error=/dev/null
 #SBATCH --ntasks=1
-
-# Exit on error
 set -euo pipefail
 
-# Enable module commands for batch jobs
-source /etc/profile.d/modules.sh
+######################### PATHS ###########################
 
-######################### DIRECTORIES ####################
-
-# Resolve pipeline root relative to this script's location
-PIPELINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Navigate to pipeline root path
-cd "${PIPELINE_DIR}"
-# Define OUTPUT directory path
-OUTPUT_DIR="${PIPELINE_DIR}/output/trimmed"
+# Define script output directory
+TRIM_DIR="${PIPELINE_DIR}/output/trim"
 # Create output directory
-mkdir -p "${OUTPUT_DIR}"
-
-######################### CONFIG #########################
-
-# Load user configuration
-source "${PIPELINE_DIR}/config.sh"
-
-######################### MODULES ########################
-
-# Load java module
-module load apps/java-8u151.tcl
-
-######################### CHECKS #########################
-
-# Check if INPUT_DIR exists
-if [[ -z "${INPUT_DIR}" || ! -d "${INPUT_DIR}" ]]; then
-    echo "ERROR: INPUT_DIR is not set or does not exist: ${INPUT_DIR}"
-    exit 1
-fi
-
-# Source helper functions
-source  "${PIPELINE_DIR}/helper_functions.sh"
-ensure_trimmomatic
-
-######################### VARIABLES ######################
+mkdir -p "${TRIM_DIR}"
 
 # Define trimmomatic.jar path
 TRIM_JAR="${PIPELINE_DIR}/trimmomatic/trimmomatic.jar"
 # Define adapter path
 TRIM_ADAPTER="${PIPELINE_DIR}/trimmomatic/adapters/TruSeq3-PE.fa"
 
-######################### SCRIPT #########################
+######################### SOURCE ##########################
+
+# Enable module commands for batch jobs
+source /etc/profile.d/modules.sh
+# Source configuration
+source "${PIPELINE_DIR}/config.sh"
+# Source base functions
+source "${UTILS_DIR}/functions_base.sh"
+
+######################### MODULES ########################
+
+# Load java module
+module load apps/java-8u151.tcl
+
+######################### MAIN ############################
+
+echo "RUNNING trimmomatic.sh ..."
+echo
+echo "  Input directory:                        ${INPUT_DIR}"
+echo "  Output directory:                       ${TRIM_DIR}"
+echo "  CPUs allocated:                         ${SLURM_CPUS_PER_TASK}"
+echo "  Memory per CPU:                         ${SLURM_MEM_PER_CPU}"
+echo "  Allowed seed mismatches:                ${TRIM_MISMATCH}"
+echo "  Palindrome clip threshold:              ${TRIM_LEADING}"
+echo "  Simple clip threshold:                  ${TRIM_TRAILING}"
+echo "  Window scan size:                       ${TRIM_WINDOW}"
+echo "  Minimum adapter length for clipping:    ${TRIM_CLIP}"
+echo "  Post-clipping discard threshold:        ${TRIM_DISCARD}"
 
 # Iterate over folders in INPUT_DIR
 find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; do
@@ -60,21 +52,20 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
         # Get sample ID
         SAMPLE_ID="$(basename "${SAMPLE_DIR}")"
         
-        # Get paired files
-        R1="$(ls "${SAMPLE_DIR}"/*_1.fastq.gz)"
-        R2="$(ls "${SAMPLE_DIR}"/*_2.fastq.gz)"
+        # Get FASTQ pairs
+        shopt -s nullglob
+        R1_FILES=("${SAMPLE_DIR}"/*_1.fastq.gz)
+        R2_FILES=("${SAMPLE_DIR}"/*_2.fastq.gz)
+        shopt -u nullglob
 
-        # Check both files exist
-        if [[ ! -f "${R1}" || ! -f "${R2}" ]]; then
-            echo "  ERROR: Missing FASTQ pair for ${SAMPLE_ID}"
-            exit 1
+        # Require exactly one FASTQ pair
+        if [[ ${#R1_FILES[@]} -ne 1 || ${#R2_FILES[@]} -ne 1 ]]; then
+            fail "Expected exactly one FASTQ pair for ${SAMPLE_ID}"
         fi
-        
-        # Check for single pair of files
-        if [[ ${#R1[@]} -ne 1 || ${#R2[@]} -ne 1 ]]; then
-        echo "ERROR: Expected exactly one FASTQ pair for ${SAMPLE_ID}"
-        exit 1
-        fi
+
+        # Define paired files
+        R1="${R1_FILES[0]}"
+        R2="${R2_FILES[0]}"
 
         # Define sample output directory
         SAMPLE_OUT_DIR="${OUTPUT_DIR}/${SAMPLE_ID}"
@@ -86,24 +77,10 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
         # Redirect .out/.err logs to LOGFILE
         exec >"${LOGFILE}" 2>&1
 
-        echo "RUNNING trimmomatic.sh..."
-        echo
-        echo "  Input directory:                        ${INPUT_DIR}"
-        echo "  Output directory:                       ${OUTPUT_DIR}"
-        echo "  CPUs allocated:                         ${SLURM_CPUS_PER_TASK}"
-        echo "  Memory per CPU:                         ${SLURM_MEM_PER_CPU}"
-        echo "  Allowed seed mismatches:                ${TRIM_MISMATCH}"
-        echo "  Palindrome clip threshold:              ${TRIM_LEADING}"
-        echo "  Simple clip threshold:                  ${TRIM_TRAILING}"
-        echo "  Window scan size:                       ${TRIM_WINDOW}"
-        echo "  Minimum adapter length for clipping:    ${TRIM_CLIP}"
-        echo "  Post-clipping discard threshold:        ${TRIM_DISCARD}"
-        echo
-
-        echo "  TRIMMING ${SAMPLE_ID}"
-        echo "  R1: ${R1}"
-        echo "  R2: ${R2}"
-        echo "  Output directory: ${SAMPLE_OUT_DIR}"
+        echo "TRIMMING                                ${SAMPLE_ID}"
+        echo "R1:                                     ${R1}"
+        echo "R2:                                     ${R2}"
+        echo "Sample output directory:                ${SAMPLE_OUT_DIR}"
 
         # Run trimmomatic
         java -jar "${TRIM_JAR}" \
@@ -116,15 +93,12 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
             SLIDINGWINDOW:"${TRIM_WINDOW}":${TRIM_CLIP} \
             MINLEN:"${TRIM_DISCARD}"
 
-        echo "trimmomatic.sh COMPLETE"
+        echo "Trimming COMPLETE"
 
     )
 
 done
 
-
-
-
-
-
-
+echo
+echo "trimmomatic.sh COMPLETE"
+echo

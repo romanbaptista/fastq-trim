@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euo pipefail
+
+# Define script name
+CURRENT_SCRIPT="$(basename "${BASH_SOURCE[0]}")"
+
+echo "  RUNNING ${CURRENT_SCRIPT} ..."
+echo "  Checking input directory: ${INPUT_DIR}..."
+
+# Check input directory
+check_variable "INPUT_DIR" || fail "  Please provide a valid INPUT_DIR in config.sh"
+check_directory "${INPUT_DIR}" || fail "  Please provide an INPUT_DIR in config.sh that exists"
+
+echo "  Input directory confirmed: ${INPUT_DIR}"
+echo "  Checking for compressed FASTQ files..."
+
+# Check for compressed FASTQ files
+if ! find "${INPUT_DIR}" -type f -name "*.fastq.gz" | grep -q .; then
+    fail "  ERROR: No .fastq.gz files found in '${INPUT_DIR}'"
+fi
+
+echo "  FASTQ files found"
+echo "  ${CURRENT_SCRIPT} COMPLETE"

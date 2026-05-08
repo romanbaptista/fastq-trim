@@ -1,77 +1,66 @@
 #!/bin/bash
 #SBATCH --job-name=bbduk
-#SBATCH --output=/dev/null
-#SBATCH --error=/dev/null
-
-# Exit on error
 set -euo pipefail
+
+######################### PATHS ###########################
+
+# Define script output directory
+TRIM_DIR="${PIPELINE_DIR}/output/trim"
+# Create output directory
+mkdir -p "${TRIM_DIR}"
+
+# Define path to bbtools executable
+BBDUK_PATH="${PIPELINE_DIR}/bbtools/bbduk.sh"
+# Define path to bbtools adapters
+BBDUK_ADAPTERS="${PIPELINE_DIR}/bbtools/resources/adapters.fa"
+
+######################### SOURCE ##########################
 
 # Enable module commands for batch jobs
 source /etc/profile.d/modules.sh
-
-######################### DIRECTORIES ####################
-
-# Resolve pipeline root relative to this script's location
-PIPELINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Navigate to pipeline root path
-cd "${PIPELINE_DIR}"
-# Define OUTPUT directory path
-OUTPUT_DIR="${PIPELINE_DIR}/output/trimmed"
-# Create output directory
-mkdir -p "${OUTPUT_DIR}"
-
-######################### CONFIG #########################
-
-# Load user configuration
+# Source configuration
 source "${PIPELINE_DIR}/config.sh"
+# Source base functions
+source "${UTILS_DIR}/functions_base.sh"
 
-######################### CHECKS #########################
+######################### MAIN ############################
 
-# Check if INPUT_DIR exists
-if [[ -z "${INPUT_DIR}" || ! -d "${INPUT_DIR}" ]]; then
-    echo "ERROR: INPUT_DIR is not set or does not exist: ${INPUT_DIR}"
-    exit 1
-fi
+echo "RUNNING bbduk.sh ..."
+echo
+echo "  Input directory:             ${INPUT_DIR}"
+echo "  Output directory:            ${TRIM_DIR}"
+echo "  CPUs allocated:              ${SLURM_CPUS_PER_TASK}"
+echo "  Memory per CPU:              ${SLURM_MEM_PER_CPU}"
 
-# Source helper functions
-source  "${PIPELINE_DIR}/helper_functions.sh"
-ensure_bbtools
 
-######################### VARIABLES ######################
-
-BBDUK_PATH="${PIPELINE_DIR}/bbtools/bbduk.sh"
-BBDUK_ADAPTERS="${PIPELINE_DIR}/bbtools/resources/adapters.fa"
-
-NUM_THREADS="${SLURM_CPUS_PER_TASK}"
-
-######################### SCRIPT #########################
-
-# Iterate over folders in INPUT_DIR
-find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; do
+# Iterate over sample directories in INPUT_DIR
+for SAMPLE_DIR in "${INPUT_DIR}"/*/; do
     
+    # Skip if no directories match
+    [[ -d "${SAMPLE_DIR}" ]] || continue
+
     (
     
         # Get sample ID
         SAMPLE_ID="$(basename "${SAMPLE_DIR}")"
-
-        # Get paired files
-        R1="$(ls "${SAMPLE_DIR}"/*_1.fastq.gz)"
-        R2="$(ls "${SAMPLE_DIR}"/*_2.fastq.gz)"
-
-        # Check both files exist
-        if [[ ! -f "${R1}" || ! -f "${R2}" ]]; then
-            echo "  ERROR: Missing FASTQ pair for ${SAMPLE_ID}"
-            exit 1
+        
+        # Get FASTQ pairs
+        shopt -s nullglob
+        R1_FILES=("${SAMPLE_DIR}"/*_1.fastq.gz)
+        R2_FILES=("${SAMPLE_DIR}"/*_2.fastq.gz)
+        shopt -u nullglob
+        
+        # Require exactly one FASTQ pair
+        if [[ ${#R1_FILES[@]} -ne 1 || ${#R2_FILES[@]} -ne 1 ]]; then
+            fail "Expected exactly one FASTQ pair for ${SAMPLE_ID}"
         fi
 
-        # Check for single pair of files
-        if [[ ${#R1[@]} -ne 1 || ${#R2[@]} -ne 1 ]]; then
-        echo "ERROR: Expected exactly one FASTQ pair for ${SAMPLE_ID}"
-        exit 1
-        fi
+        # Define paired files
+        R1="${R1_FILES[0]}"
+        R2="${R2_FILES[0]}"
 
         # Define sample output directory
-        SAMPLE_OUT_DIR="${OUTPUT_DIR}/${SAMPLE_ID}"
+        SAMPLE_OUT_DIR="${TRIM_DIR}/${SAMPLE_ID}"
         # Create directory
         mkdir -p "${SAMPLE_OUT_DIR}"
         
@@ -80,22 +69,14 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
         # Redirect .out/.err logs to LOGFILE
         exec >"${LOGFILE}" 2>&1
 
-        echo "RUNNING bbduk.sh..."
-        echo
-        echo "  Input directory:      ${INPUT_DIR}"
-        echo "  Output directory:     ${OUTPUT_DIR}"
-        echo "  CPUs allocated:       ${SLURM_CPUS_PER_TASK}"
-        echo "  Memory per CPU:       ${SLURM_MEM_PER_CPU}"
-        echo
-
-        echo "  TRIMMING ${SAMPLE_ID}"
-        echo "  R1: ${R1}"
-        echo "  R2: ${R2}"
-        echo "  Output directory: ${SAMPLE_OUT_DIR}"
+        echo "  TRIMMING:                    ${SAMPLE_ID}"
+        echo "  R1:                          ${R1}"
+        echo "  R2:                          ${R2}"
+        echo "  Sample output directory:     ${SAMPLE_OUT_DIR}"
         echo
 
         # Run BBDUK
-        $BBDUK_PATH \
+        ${BBDUK_PATH} \
             in1="${R1}" \
             in2="${R2}" \
             out1="${SAMPLE_OUT_DIR}/${SAMPLE_ID}_1.trim.fastq.gz" \
@@ -106,10 +87,14 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
             qtrim=rl \
             trimq="${BBDUK_TRIMQ}" \
             minlen="${BBDUK_MINLEN}" \
-            threads="${NUM_THREADS}"
+            threads="${SLURM_CPUS_PER_TASK}"
 
-        echo "bbduk.sh COMPLETE"
+        echo "Trimming COMPLETE"
 
     )
 
 done
+
+echo
+echo "bbduk.sh COMPLETE"
+echo

@@ -2,20 +2,35 @@
 
 ######################### DIRECTORIES ####################
 
-# Define directory containing fastq.gz per-sample folders
+# INPUT_DIR:
+# Absolute or relative path to the directory containing input sequencing data
+# for the QC pipeline.
+# This directory MUST be set by the user, MUST exist and MUST contain one or more pairs of compressed FASTQ files
+# (e.g. *.fastq.gz).
 INPUT_DIR=""
 
 ######################### PACKAGE SELECTION #############
 
 # PACKAGE_TO_USE:
-# Trimming package to use, can be either "bbduk" or "trimmomatic"
+# Trimming package to use for adapter and quality trimming.
+# Supported options are "bbduk" or "trimmomatic".
+# This setting determines which trimming module is executed and which
+# package-specific parameters from this configuration file are validated
+# and used during the pipeline run.
 PACKAGE_TO_USE="bbduk"
 
 ######################### BBDUK.SH ######################
 
-# Define number of threads (6-8 is normal)
+# BBDUK_CPUS:
+# Number of CPU threads allocated per bbduk task.
+# Increasing this value can improve conversion speed but will increase
+# per-job CPU usage (6-8 is normal).
 BBDUK_CPUS=8
-# Define memory per thread (8-16 is normal)
+
+# BBDUK_MEM_PER_CPU:
+# Amount of memory allocated per CPU thread for bbduk.
+# This value is typically passed to the scheduler as memory-per-CPU
+# and should be adjusted based on dataset size and cluster policy (8-16 is normal).
 BBDUK_MEM_PER_CPU=16G
 
 # BBDUK_TRIMQ:
@@ -23,7 +38,6 @@ BBDUK_MEM_PER_CPU=16G
 # from the ends of reads (when qtrim is enabled). Lower values are more
 # conservative and help preserve coverage for variant calling.
 BBDUK_TRIMQ=10
-
 
 # BBDUK_MINLEN:
 # Minimum read length to retain after trimming. Reads shorter than this
@@ -33,9 +47,16 @@ BBDUK_MINLEN=20
 
 ######################### TRIMMOMATIC ###################
 
-# Define number of threads (4 is normal)
+# TRIM_CPUS:
+# Number of CPU threads allocated per trimmomatic task.
+# Increasing this value can improve conversion speed but will increase
+# per-job CPU usage.(4 is normal)
 TRIM_CPUS=4
-# Define memory per thread (2-4 is normal)
+
+# TRIM_MEM_PER_CPU:
+# Amount of memory allocated per CPU thread for trimmomatic.
+# This value is typically passed to the scheduler as memory-per-CPU
+# and should be adjusted based on dataset size and cluster policy (2-4 is normal).
 TRIM_MEM_PER_CPU=4G
 
 # TRIM_MISMATCH:

@@ -69,7 +69,7 @@ Provides BBTools‑specific helpers for verification and installation.
 |---------|---------|
 | `check_bbtools` | Verifies BBTools directory structure and BBDUK executable |
 | `download_bbtools` | Downloads and extracts a pinned BBTools release into the pipeline directory |
-| `ensure_bbtools` | Calls check_bbtools and installs BBTools if required |
+| `ensure_bbtools` | Calls `check_bbtools` and installs BBTools if required |
 
 All BBTools installation and verification is performed only during preflight, never during compute jobs.
 
@@ -88,7 +88,7 @@ Provides Trimmomatic‑specific helpers for verification and installation.
 |---------|---------|
 | `check_trimmomatic` | Verifies Trimmomatic directory, JAR file, and Java command |
 | `download_trimmomatic` | Downloads and extracts a pinned Trimmomatic release into the pipeline directory |
-| `ensure_trimmomatic` | Calls check_trimmomatic and installs Trimmomatic if required |
+| `ensure_trimmomatic` | Calls `check_trimmomatic` and installs Trimmomatic if required |
 
 As with BBTools, all Trimmomatic setup occurs exclusively during preflight.
 

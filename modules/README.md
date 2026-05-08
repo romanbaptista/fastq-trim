@@ -1,4 +1,4 @@
-# Pipeline Modules
+# `modules`
 
 This directory contains the implementation modules for the trim pipeline.
 

@@ -1,4 +1,4 @@
-# Utility Functions
+# `utils`
 
 This directory contains shared utility functions used by the trim pipeline.
 

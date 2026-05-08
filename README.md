@@ -1,4 +1,4 @@
-# Trim Pipeline
+# `trim`
 
 # Overview
 This repository contains the trim pipeline — a modular, SLURM‑compatible workflow for:

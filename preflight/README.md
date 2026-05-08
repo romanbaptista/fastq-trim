@@ -1,4 +1,4 @@
-# Preflight Validation
+# `preflight`
 This directory contains the preflight validation layer for the trim pipeline.
 
 Preflight scripts are responsible for all validation and environment checks required to safely execute the pipeline under SLURM.

@@ -4,7 +4,6 @@ set -euo pipefail
 : "${PIPELINE_DIR:?PIPELINE_DIR not set}"
 : "${INPUT_DIR:?INPUT_DIR not set}"
 : "${PACKAGE_TO_USE:?PACKAGE_TO_USE not set}"
-: "${EXPORT_ARRAY:?EXPORT_ARRAY not inherited}"
 
 ######################### PATHS ###########################
 

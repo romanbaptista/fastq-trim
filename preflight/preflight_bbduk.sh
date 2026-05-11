@@ -4,6 +4,9 @@ set -euo pipefail
 # Define script name
 CURRENT_SCRIPT="$(basename "${BASH_SOURCE[0]}")"
 
+# Source bbduk functions
+source "${UTILS_DIR}/functions_bbduk.sh"
+
 # Define config variables
 VARIABLE_ARRAY=(
     BBDUK_CPUS

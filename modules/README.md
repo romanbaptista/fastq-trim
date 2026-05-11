@@ -26,11 +26,11 @@ The trim pipeline uses a single‑dispatch execution model:
 - All SLURM resource requests are defined centrally by the pipeline orchestrator
 
 The current set of modules is:
-```text
+
 pipeline.sh
 bbduk.sh
 trimmomatic.sh
-```
+
 
 Execution and SLURM submission logic are explicitly defined in `modules/pipeline.sh`.
 
@@ -69,12 +69,12 @@ Runs adapter removal and quality trimming using BBDUK from the BBTools suite.
 
 ### Expected Input Layout
 Each sample must reside in its own subdirectory under INPUT_DIR and contain exactly one paired FASTQ set:
-```text
+
 INPUT_DIR/
 ├── sample1/
 │   ├── sample1_1.fastq.gz
 │   └── sample1_2.fastq.gz
-```
+
 
 ### Workflow
 - Iterates over sample directories in `INPUT_DIR`
@@ -85,14 +85,13 @@ INPUT_DIR/
 - Aborts immediately on sample‑level errors while preserving logs
 
 ### Outputs
-```text
+
 output/trim/
 └── sample1/
     ├── sample1_1.trim.fastq.gz
     ├── sample1_2.trim.fastq.gz
     └── sample1_trim.log
 
-```
 
 ### Guarantees
 - No reliance on the working directory
@@ -113,12 +112,12 @@ Runs adapter removal and quality trimming using Trimmomatic.
 
 ### Expected Input Layout
 Identical to bbduk.sh:
-```text
+
 INPUT_DIR/
 ├── sample1/
 │   ├── sample1_1.fastq.gz
 │   └── sample1_2.fastq.gz
-```
+
 
 ### Workflow
 - Iterates over sample directories in INPUT_DIR
@@ -128,7 +127,7 @@ INPUT_DIR/
 - Writes trimmed outputs and per‑sample logs
 
 ### Outputs
-```text
+
 output/trim/
 └── sample1/
     ├── sample1.trim_1P.fastq.gz
@@ -136,7 +135,7 @@ output/trim/
     ├── sample1.trim_1U.fastq.gz
     ├── sample1.trim_2U.fastq.gz
     └── sample1_trim.log
-```
+
 (Output naming follows Trimmomatic semantics.)
 
 ### Guarantees

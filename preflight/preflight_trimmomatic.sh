@@ -4,6 +4,9 @@ set -euo pipefail
 # Define script name
 CURRENT_SCRIPT="$(basename "${BASH_SOURCE[0]}")"
 
+# Source trimmomatic functions
+source "${UTILS_DIR}/functions_trimmomatic.sh"
+
 # Define config variables
 VARIABLE_ARRAY=(
     TRIM_CPUS

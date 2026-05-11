@@ -5,9 +5,9 @@ set -euo pipefail
 ######################### PATHS ###########################
 
 # Define script output directory
-TRIM_DIR="${PIPELINE_DIR}/output/trim"
+SCRIPT_DIR="${PIPELINE_DIR}/output/trim"
 # Create output directory
-mkdir -p "${TRIM_DIR}"
+mkdir -p "${SCRIPT_DIR}"
 
 # Define path to bbtools executable
 BBDUK_PATH="${PIPELINE_DIR}/bbtools/bbduk.sh"
@@ -25,10 +25,11 @@ source "${UTILS_DIR}/functions_base.sh"
 
 ######################### MAIN ############################
 
+echo
 echo "RUNNING bbduk.sh ..."
 echo
 echo "  Input directory:             ${INPUT_DIR}"
-echo "  Output directory:            ${TRIM_DIR}"
+echo "  Output directory:            ${SCRIPT_DIR}"
 echo "  CPUs allocated:              ${SLURM_CPUS_PER_TASK}"
 echo "  Memory per CPU:              ${SLURM_MEM_PER_CPU}"
 
@@ -60,7 +61,7 @@ for SAMPLE_DIR in "${INPUT_DIR}"/*/; do
         R2="${R2_FILES[0]}"
 
         # Define sample output directory
-        SAMPLE_OUT_DIR="${TRIM_DIR}/${SAMPLE_ID}"
+        SAMPLE_OUT_DIR="${SCRIPT_DIR}/${SAMPLE_ID}"
         # Create directory
         mkdir -p "${SAMPLE_OUT_DIR}"
         

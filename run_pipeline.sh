@@ -49,14 +49,10 @@ case "${PACKAGE_TO_USE}" in
     bbduk)
         # Add preflight to PREFLIGHT_ARRAY
         PREFLIGHT_ARRAY+=("preflight_bbduk.sh")
-        # Source bbduk functions
-        source "${UTILS_DIR}/functions_bbduk.sh"
         ;;
     trimmomatic)
         # Add preflight to PREFLIGHT_ARRAY
         PREFLIGHT_ARRAY+=("preflight_trimmomatic.sh")
-        # Source trimmomatic functions
-        source "${UTILS_DIR}/functions_trimmomatic.sh"
         ;;
     *)
         fail "  ERROR: Invalid PACKAGE_TO_USE: ${PACKAGE_TO_USE}; Valid options are: 'bbduk' | 'trimmomatic'"
@@ -111,7 +107,7 @@ echo "  Submitting pipeline to SLURM..."
 PIPELINE_JOB_ID=$(
     sbatch \
         --parsable \
-        --export="$(SBATCH_EXPORTS)" \
+        --export="${SBATCH_EXPORTS}" \
         --output="${LOG_DIR}/pipeline.%j.log" \
         "${MODULES_DIR}/pipeline.sh"
 ) || fail "  ERROR: Failed to submit pipeline.sh"

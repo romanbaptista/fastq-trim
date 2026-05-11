@@ -6,9 +6,9 @@ set -euo pipefail
 ######################### PATHS ###########################
 
 # Define script output directory
-TRIM_DIR="${PIPELINE_DIR}/output/trim"
+SCRIPT_DIR="${PIPELINE_DIR}/output/trim"
 # Create output directory
-mkdir -p "${TRIM_DIR}"
+mkdir -p "${SCRIPT_DIR}"
 
 # Define trimmomatic.jar path
 TRIM_JAR="${PIPELINE_DIR}/trimmomatic/trimmomatic.jar"
@@ -34,7 +34,7 @@ module load apps/java-8u151.tcl
 echo "RUNNING trimmomatic.sh ..."
 echo
 echo "  Input directory:                        ${INPUT_DIR}"
-echo "  Output directory:                       ${TRIM_DIR}"
+echo "  Output directory:                       ${SCRIPT_DIR}"
 echo "  CPUs allocated:                         ${SLURM_CPUS_PER_TASK}"
 echo "  Memory per CPU:                         ${SLURM_MEM_PER_CPU}"
 echo "  Allowed seed mismatches:                ${TRIM_MISMATCH}"
@@ -68,7 +68,7 @@ find "${INPUT_DIR}" -mindepth 1 -maxdepth 1 -type d | while read -r SAMPLE_DIR; 
         R2="${R2_FILES[0]}"
 
         # Define sample output directory
-        SAMPLE_OUT_DIR="${OUTPUT_DIR}/${SAMPLE_ID}"
+        SAMPLE_OUT_DIR="${SCRIPT_DIR}/${SAMPLE_ID}"
         # Create directory
         mkdir -p "${SAMPLE_OUT_DIR}"
 

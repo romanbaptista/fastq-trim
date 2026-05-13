@@ -1,29 +1,29 @@
-
 #!/bin/bash
 set -euo pipefail
 
+######################### GUARDS ##########################
+
+: "${UTILS_DIR:?UTILS_DIR not set (check PATHS section in run_pipeline.sh)}"
+
+######################### SETUP ##########################
+
 # Define script name
-CURRENT_SCRIPT="$(basename "${BASH_SOURCE[0]}")"
+SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}" .sh)
 
-# Define required commands
-COMMAND_ARRAY=(
-    bash
-    sbatch
-    find
-    basename
-    mkdir
-    gzip
-    tar
-    wget
-)
+######################## SOURCE ##########################
 
-echo "  RUNNING ${CURRENT_SCRIPT} ..."
-echo "  Checking required external commands..."
+# Source utils file
+source "${UTILS_DIR}/arrays.sh"
 
-# Iterate over required commands
+######################### MAIN ############################
+
+echo "  RUNNING ${SCRIPT_NAME} ..."
+echo "  Checking all relevant pipeline commands..."
+
+# Iterate over variables
 for cmd in "${COMMAND_ARRAY[@]}"; do
-    check_command "${cmd}" || fail "  Please ensure command is available in PATH: ${cmd}"
+    check_command "${cmd}" || fail "  Ensure relevant command or package is installed/available on the cluster: ${cmd}"
 done
 
-echo "  All required commands confirmed"
-echo "  ${CURRENT_SCRIPT} COMPLETE"
+echo "  All commands confirmed"
+echo "  ${SCRIPT_NAME} COMPLETE"

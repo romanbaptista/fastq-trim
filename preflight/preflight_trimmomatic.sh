@@ -1,35 +1,32 @@
 #!/bin/bash
 set -euo pipefail
 
+######################### GUARDS ##########################
+
+: "${PIPELINE_DIR:?PIPELINE_DIR not set (check PATHS section in run_pipeline.sh)}"
+: "${UTILS_DIR:?UTILS_DIR not set (check PATHS section in run_pipeline.sh)}"
+
+######################### SETUP ##########################
+
 # Define script name
-CURRENT_SCRIPT="$(basename "${BASH_SOURCE[0]}")"
+SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}" .sh)
+# Define toolname
+TOOLNAME="trimmomatic"
 
-# Source trimmomatic functions
-source "${UTILS_DIR}/functions_trimmomatic.sh"
+######################## SOURCE ##########################
 
-# Define config variables
-VARIABLE_ARRAY=(
-    TRIM_CPUS
-    TRIM_MEM_PER_CPU
-    TRIM_MISMATCH
-    TRIM_LEADING
-    TRIM_TRAILING
-    TRIM_WINDOW
-    TRIM_CLIP
-    TRIM_DISCARD
-)
+# Source tool-specific functions
+source "${UTILS_DIR}/functions_${TOOLNAME}.sh"
 
-echo "  RUNNING ${CURRENT_SCRIPT} ..."
-echo "  Checking for trimmomatic-specific user-defined variables..."
+######################### MAIN ############################
 
-# Iterate over variables
-for variable in "${VARIABLE_ARRAY[@]}"; do
-    check_variable "${variable}" || fail "  Set variable in config.sh: ${variable}"
-done
+echo "  RUNNING ${SCRIPT_NAME} ..."
+echo "  Checking for ${TOOLNAME} install..."
 
-echo "  All trimmomatic variables confirmed"
-echo "  Checking for trimmomatic install..."
+# Ensure trimmomatic is installed (install if missing)
+if ! check_trimmomatic "${PIPELINE_DIR}"; then
+    install_trimmomatic "${PIPELINE_DIR}"
+fi
 
-ensure_trimmomatic "${PIPELINE_DIR}"
-
-echo "  ${CURRENT_SCRIPT} COMPLETE"
+echo "  Install confirmed: ${TOOLNAME}"
+echo "  ${SCRIPT_NAME} COMPLETE"

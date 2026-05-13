@@ -1,108 +1,82 @@
 #!/bin/bash
 set -euo pipefail
 
+######################### SETUP ##########################
+
+# Define pipeline name
+PIPELINE_NAME="fastq-trim"
+# Define script name
+SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}" .sh)
+
 ######################### PATHS ###########################
 
-# Define pipeline root path
+# Define directory paths
 PIPELINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Define modules directory
 MODULES_DIR="${PIPELINE_DIR}/modules"
-# Define utils directory
-UTILS_DIR="${PIPELINE_DIR}/utils"
-# Define preflight directory
 PREFLIGHT_DIR="${PIPELINE_DIR}/preflight"
+UTILS_DIR="${PIPELINE_DIR}/utils"
+LOG_DIR="${PIPELINE_DIR}/logs"
+OUTPUT_DIR="${PIPELINE_DIR}/output"
+SCRIPT_OUTDIR="${OUTPUT_DIR}/trim"
+
+# Define directories to create
+DIR_ARRAY=(
+    LOG_DIR
+    OUTPUT_DIR
+    SCRIPT_OUTDIR
+)
+
+# Create directories
+for dir in "${DIR_ARRAY[@]}"; do
+    mkdir -p "${!dir}"
+done
 
 ######################### SOURCE ##########################
 
-# Source configuration
-source "${PIPELINE_DIR}/config.sh"
-# Source base functions
+# Source scripts
 source "${UTILS_DIR}/functions_base.sh"
+source "${UTILS_DIR}/arrays.sh"
+source "${PIPELINE_DIR}/config.sh"
 
 ######################### LOGS ############################
 
-# Define log directory
-LOG_DIR="${PIPELINE_DIR}/logs"
-# Create log directory
-mkdir -p "${LOG_DIR}"
-
-# Define log file for run_pipeline.sh
-LOG_FILE="${LOG_DIR}/run_pipeline.log"
+# Define log file for this script
+LOG_FILE="${LOG_DIR}/${SCRIPT_NAME}.log"
 # Redirect stdout/stderr to terminal and log file
-exec > >(tee "${LOG_FILE}") 2>&1
+exec > >(tee -a "${LOG_FILE}") 2>&1
 
 ######################### CHECKS ##########################
 
 echo
-echo "PREFLIGHT for run_pipeline.sh ..."
+echo "PREFLIGHT for ${PIPELINE_NAME} ..."
 
-# Define preflight array
-PREFLIGHT_ARRAY=(
-    "preflight_input.sh"
-    "preflight_variables.sh"
-    "preflight_scripts.sh"
-    "preflight_commands.sh"
-)
-
-# Check for selected package
-case "${PACKAGE_TO_USE}" in
-    bbduk)
-        # Add preflight to PREFLIGHT_ARRAY
-        PREFLIGHT_ARRAY+=("preflight_bbduk.sh")
-        ;;
-    trimmomatic)
-        # Add preflight to PREFLIGHT_ARRAY
-        PREFLIGHT_ARRAY+=("preflight_trimmomatic.sh")
-        ;;
-    *)
-        fail "  ERROR: Invalid PACKAGE_TO_USE: ${PACKAGE_TO_USE}; Valid options are: 'bbduk' | 'trimmomatic'"
-        ;;
-esac
-
-# Iterate through preflight checks
-for file in "${PREFLIGHT_ARRAY[@]}"; do
-    check_file "${PREFLIGHT_DIR}/${file}" || fail "  Please ensure that preflight script exists: ${file}"
-    check_file_data "${PREFLIGHT_DIR}/${file}" || fail "  Please ensure that preflight script contains data: ${file}"
-    source "${PREFLIGHT_DIR}/${file}"
-done
+source "${PREFLIGHT_DIR}/preflight.sh"
 
 echo
-echo "  Selected trimming method: '${PACKAGE_TO_USE}'"
-echo "Preflight checks COMPLETE"
+echo "  Selected trimming method: ${PACKAGE_TO_USE}"
+echo "Preflight COMPLETE"
 echo "Moving to main execution"
 
 ######################### EXPORTS #########################
 
-# Define export array
-EXPORT_ARRAY=(
-    PIPELINE_DIR
-    MODULES_DIR
-    UTILS_DIR
-    LOG_DIR
-    INPUT_DIR
-    PACKAGE_TO_USE
-)
-
-# Iterate over directories to export
+# Iterate over items to export
 for var in "${EXPORT_ARRAY[@]}";do
     export "${var}"
 done
 
 # Snapshot EXPORT_ARRAY
 SBATCH_EXPORTS="$(IFS=,; echo "${EXPORT_ARRAY[*]}")"
+export SBATCH_EXPORTS
 
 ######################### MAIN ############################
 
 echo
-echo "RUNNING run_pipeline.sh ..."
+echo "RUNNING ${PIPELINE_NAME} ${SCRIPT_NAME} ..."
 
 echo
 echo "  User configuration:"
 echo "    Input directory:            ${INPUT_DIR}"
 echo "    Trimming method:            ${PACKAGE_TO_USE}"
-
-echo
-echo "  Submitting pipeline to SLURM..."
 
 PIPELINE_JOB_ID=$(
     sbatch \
@@ -114,5 +88,5 @@ PIPELINE_JOB_ID=$(
 
 echo
 echo "Pipeline Job ID: ${PIPELINE_JOB_ID}"
-echo "run_pipeline.sh COMPLETE"
+echo "${PIPELINE_NAME} ${SCRIPT_NAME} COMPLETE"
 echo 

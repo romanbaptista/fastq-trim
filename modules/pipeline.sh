@@ -1,39 +1,48 @@
 #!/bin/bash
 set -euo pipefail
 
-: "${PIPELINE_DIR:?PIPELINE_DIR not set}"
-: "${INPUT_DIR:?INPUT_DIR not set}"
-: "${PACKAGE_TO_USE:?PACKAGE_TO_USE not set}"
 
-######################### PATHS ###########################
+######################### GUARDS ##########################
 
-# Define output directory
-OUTPUT_DIR="${PIPELINE_DIR}/output"
-# Create output directory
-mkdir -p "${OUTPUT_DIR}"
+GUARD_ARRAY=(
+    INPUT_DIR
+    PIPELINE_DIR
+    MODULES_DIR
+    LOG_DIR
+    PACKAGE_TO_USE
+    EXPORT_ARRAY
+    SBATCH_EXPORTS
+    BBDUK_CPUS
+    BBDUK_MEM_PER_CPU
+    TRIM_CPUS
+    TRIM_MEM_PER_CPU
+)
 
-######################### EXPORTS #########################
+for var in "${GUARD_ARRAY[@]}"; do
+    : "${!var:?${var} not set or not exported (check run_pipeline.sh)}"
+done
 
-# Export OUTPUT_DIR
-export OUTPUT_DIR
-# Add to EXPORT ARRAY
-EXPORT_ARRAY+=(OUTPUT_DIR)
+######################### SETUP ###########################
 
-# Snapshot EXPORT_ARRAY
-SBATCH_EXPORTS="$(IFS=,; echo "${EXPORT_ARRAY[*]}")"
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
+
+######################### LOGS ############################
+
+LOG_FILE="${LOG_DIR}/${SCRIPT_NAME}.log"
+exec > >(tee -a "${LOG_FILE}") 2>&1
 
 ######################### MAIN ############################
 
 echo
-echo "RUNNING pipeline.sh ..."
+echo "RUNNING ${SCRIPT_NAME} ..."
 
 echo
 echo "  User configuration:"
-echo "    Input directory:    ${INPUT_DIR}"
-echo "    Trimming method:    ${PACKAGE_TO_USE}"
+echo "    Input directory:      ${INPUT_DIR}"
+echo "    Trimming method:      ${PACKAGE_TO_USE}"
 
 echo
-echo "  Pipeline starting..."
+echo "  Dispatching module..."
 
 case "${PACKAGE_TO_USE}" in
 
@@ -64,10 +73,7 @@ case "${PACKAGE_TO_USE}" in
         ;;
     
     *)
-        echo "  ERROR: Invalid PACKAGE_TO_USE: '${PACKAGE_TO_USE}'"
-        echo "  Valid options are: bbduk | trimmomatic"
-        echo "  Exiting..."
-        exit 1
+        fail "  ERROR: Invalid PACKAGE_TO_USE: '${PACKAGE_TO_USE}'"
 esac
 
 echo

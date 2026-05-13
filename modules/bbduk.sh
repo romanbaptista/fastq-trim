@@ -2,37 +2,43 @@
 #SBATCH --job-name=bbduk
 set -euo pipefail
 
+######################### GUARDS ##########################
+
+# Required variables inherited via EXPORT_ARRAY + SLURM
+GUARD_ARRAY=(
+    PIPELINE_DIR
+    INPUT_DIR
+    OUTPUT_DIR
+    SCRIPT_OUTDIR
+    SLURM_CPUS_PER_TASK
+    BBDUK_TRIMQ
+    BBDUK_MINLEN
+)
+
+for var in "${GUARD_ARRAY[@]}"; do
+    : "${!var:?${var} not set or not exported (check EXPORT_ARRAY in run_pipeline.sh)}"
+done
+
+######################### SETUP ###########################
+
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
+
 ######################### PATHS ###########################
 
-# Define script output directory
-SCRIPT_DIR="${PIPELINE_DIR}/output/trim"
-# Create output directory
-mkdir -p "${SCRIPT_DIR}"
-
-# Define path to bbtools executable
+# Define tool paths (guaranteed by preflight)
 BBDUK_PATH="${PIPELINE_DIR}/bbtools/bbduk.sh"
-# Define path to bbtools adapters
 BBDUK_ADAPTERS="${PIPELINE_DIR}/bbtools/resources/adapters.fa"
-
-######################### SOURCE ##########################
-
-# Enable module commands for batch jobs
-source /etc/profile.d/modules.sh
-# Source configuration
-source "${PIPELINE_DIR}/config.sh"
-# Source base functions
-source "${UTILS_DIR}/functions_base.sh"
 
 ######################### MAIN ############################
 
 echo
-echo "RUNNING bbduk.sh ..."
-echo
-echo "  Input directory:             ${INPUT_DIR}"
-echo "  Output directory:            ${SCRIPT_DIR}"
-echo "  CPUs allocated:              ${SLURM_CPUS_PER_TASK}"
-echo "  Memory per CPU:              ${SLURM_MEM_PER_CPU}"
+echo "RUNNING ${SCRIPT_NAME} ..."
 
+echo
+echo "  Info:"
+echo "      Input directory:            ${INPUT_DIR}"
+echo "      Output directory:           ${SCRIPT_OUTDIR}"
+echo "      CPUs allocated per task:    ${SLURM_CPUS_PER_TASK}"
 
 # Iterate over sample directories in INPUT_DIR
 for SAMPLE_DIR in "${INPUT_DIR}"/*/; do
@@ -51,37 +57,44 @@ for SAMPLE_DIR in "${INPUT_DIR}"/*/; do
         R2_FILES=("${SAMPLE_DIR}"/*_2.fastq.gz)
         shopt -u nullglob
         
+        # Enforce exactly one pair
+        [[ ${#R1_FILES[@]} -eq 1 && ${#R2_FILES[@]} -eq 1 ]] || fail "  ERROR: Expected exactly one FASTQ pair for sample: ${SAMPLE_ID}"
+
         # Require exactly one FASTQ pair
-        if [[ ${#R1_FILES[@]} -ne 1 || ${#R2_FILES[@]} -ne 1 ]]; then
-            fail "Expected exactly one FASTQ pair for ${SAMPLE_ID}"
-        fi
+        #if [[ ${#R1_FILES[@]} -ne 1 || ${#R2_FILES[@]} -ne 1 ]]; then
+        #    fail "Expected exactly one FASTQ pair for ${SAMPLE_ID}"
+        #fi
 
         # Define paired files
         R1="${R1_FILES[0]}"
         R2="${R2_FILES[0]}"
 
-        # Define sample output directory
-        SAMPLE_OUT_DIR="${SCRIPT_DIR}/${SAMPLE_ID}"
-        # Create directory
-        mkdir -p "${SAMPLE_OUT_DIR}"
+        # Create sample output directory
+        SAMPLE_OUTDIR="${SCRIPT_DIR}/${SAMPLE_ID}"
+        mkdir -p "${SAMPLE_OUTDIR}"
         
-        # Define log file path
-        LOGFILE="${SAMPLE_OUT_DIR}/${SAMPLE_ID}_trim.log"
-        # Redirect .out/.err logs to LOGFILE
+        # Create LOGFILE and redirect sample logs
+        LOGFILE="${SAMPLE_OUTDIR}/${SAMPLE_ID}_trim.log"
         exec >"${LOGFILE}" 2>&1
 
         echo "  TRIMMING:                    ${SAMPLE_ID}"
         echo "  R1:                          ${R1}"
         echo "  R2:                          ${R2}"
-        echo "  Sample output directory:     ${SAMPLE_OUT_DIR}"
+        echo "  Sample output directory:     ${SAMPLE_OUTDIR}"
         echo
+
+        # Skip existing files
+        if compgen -G "${SAMPLE_OUTDIR}/*.trim.fastq.gz" > /dev/null; then
+            echo "  Trimmed files already exist; skipping"
+            exit 0
+        fi
 
         # Run BBDUK
         ${BBDUK_PATH} \
             in1="${R1}" \
             in2="${R2}" \
-            out1="${SAMPLE_OUT_DIR}/${SAMPLE_ID}_1.trim.fastq.gz" \
-            out2="${SAMPLE_OUT_DIR}/${SAMPLE_ID}_2.trim.fastq.gz" \
+            out1="${SAMPLE_OUTDIR}/${SAMPLE_ID}_1.trim.fastq.gz" \
+            out2="${SAMPLE_OUTDIR}/${SAMPLE_ID}_2.trim.fastq.gz" \
             ref="${BBDUK_ADAPTERS}" \
             k=23 \
             hdist=1 \
@@ -90,12 +103,12 @@ for SAMPLE_DIR in "${INPUT_DIR}"/*/; do
             minlen="${BBDUK_MINLEN}" \
             threads="${SLURM_CPUS_PER_TASK}"
 
-        echo "Trimming COMPLETE"
+        echo "   Trimming COMPLETE"
 
     )
 
 done
 
 echo
-echo "bbduk.sh COMPLETE"
+echo "${SCRIPT_NAME} COMPLETE"
 echo

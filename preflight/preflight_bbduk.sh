@@ -1,40 +1,32 @@
 #!/bin/bash
 set -euo pipefail
 
+######################### GUARDS ##########################
+
+: "${PIPELINE_DIR:?PIPELINE_DIR not set (check PATHS section in run_pipeline.sh)}"
+: "${UTILS_DIR:?UTILS_DIR not set (check PATHS section in run_pipeline.sh)}"
+
+######################### SETUP ##########################
+
 # Define script name
-CURRENT_SCRIPT="$(basename "${BASH_SOURCE[0]}")"
+SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}" .sh)
+# Define toolname
+TOOLNAME="bbtools"
 
-# Source bbduk functions
-source "${UTILS_DIR}/functions_bbduk.sh"
+######################## SOURCE ##########################
 
-# Define config variables
-VARIABLE_ARRAY=(
-    BBDUK_CPUS
-    BBDUK_MEM_PER_CPU
-    BBDUK_TRIMQ
-    BBDUK_MINLEN
-)
+# Source tool-specific functions
+source "${UTILS_DIR}/functions_${TOOLNAME}.sh"
 
-echo "  RUNNING ${CURRENT_SCRIPT} ..."
-echo "  Checking for bbduk-specific user-defined variables..."
+######################### MAIN ############################
 
-# Iterate over variables
-for variable in "${VARIABLE_ARRAY[@]}"; do
-    check_variable "${variable}" || fail "  Set variable in config.sh: ${variable}"
-done
+echo "  RUNNING ${SCRIPT_NAME} ..."
+echo "  Checking for ${TOOLNAME} install..."
 
-echo "  All bbduk variables confirmed"
-echo "  Checking for bbtools install..."
+# Ensure bbtools is installed in pipeline root (install if missing)
+if ! check_bbtools "${PIPELINE_DIR}"; then
+    install_bbtools "${PIPELINE_DIR}"
+fi
 
-ensure_bbtools "${PIPELINE_DIR}"
-
-echo "  Checking for bbtools executable..."
-check_file "${PIPELINE_DIR}/bbtools/bbduk.sh"
-check_file_data "${PIPELINE_DIR}/bbtools/resources/adapters.fa"
-check_executable "${PIPELINE_DIR}/bbtools/bbduk.sh"
-
-echo "  Checking for bbtools adapter file..."
-check_file "${PIPELINE_DIR}/bbtools/resources/adapters.fa"
-check_file_data "${PIPELINE_DIR}/bbtools/resources/adapters.fa"
-
-echo "  ${CURRENT_SCRIPT} COMPLETE"
+echo "  Install confirmed: ${TOOLNAME}"
+echo "  ${SCRIPT_NAME} COMPLETE"

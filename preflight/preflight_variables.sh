@@ -1,26 +1,25 @@
 #!/bin/bash
 set -euo pipefail
 
+######################### SETUP ##########################
+
 # Define script name
-CURRENT_SCRIPT="$(basename "${BASH_SOURCE[0]}")"
+SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}" .sh)
 
-# Define config variables
-VARIABLE_ARRAY=(
-    PACKAGE_TO_USE
-)
+######################## SOURCE ##########################
 
-echo "  RUNNING ${CURRENT_SCRIPT} ..."
+# Source utils file
+source "${UTILS_DIR}/arrays.sh"
+
+######################### MAIN ############################
+
+echo "  RUNNING ${SCRIPT_NAME} ..."
 echo "  Checking for core user-defined variables..."
 
 # Iterate over variables
 for variable in "${VARIABLE_ARRAY[@]}"; do
-    check_variable "${variable}" || fail "  Set variable in config.sh: ${variable}"
+    check_variable "${variable}" || fail "  Set variable in config.sh: '${variable}'"
 done
 
-# Check PACKAGE_TO_USE value
-if [[ "${PACKAGE_TO_USE}" != "bbduk" && "${PACKAGE_TO_USE}" != "trimmomatic" ]]; then
-    fail "  ERROR: Invalid PACKAGE_TO_USE: ${PACKAGE_TO_USE}; Valid options are: 'bbduk' | 'trimmomatic'"
-fi
-
 echo "  All core user-defined variables confirmed"
-echo "  ${CURRENT_SCRIPT} COMPLETE"
+echo "  ${SCRIPT_NAME} COMPLETE"

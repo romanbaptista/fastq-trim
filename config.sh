@@ -4,9 +4,10 @@
 
 # INPUT_DIR:
 # Absolute or relative path to the directory containing input sequencing data
-# for the QC pipeline.
-# This directory MUST be set by the user, MUST exist and MUST contain one or more pairs of compressed FASTQ files
-# (e.g. *.fastq.gz).
+# for the fastq-trim pipeline.
+# This directory MUST be set by the user, MUST exist, and MUST contain
+# sample-specific subdirectories. Each subdirectory must contain exactly one
+# paired set of compressed FASTQ files (e.g. *_1.fastq.gz and *_2.fastq.gz).
 INPUT_DIR=""
 
 ######################### PACKAGE SELECTION #############
@@ -14,9 +15,10 @@ INPUT_DIR=""
 # PACKAGE_TO_USE:
 # Trimming package to use for adapter and quality trimming.
 # Supported options are "bbduk" or "trimmomatic".
-# This setting determines which trimming module is executed and which
-# package-specific parameters from this configuration file are validated
-# and used during the pipeline run.
+# This setting determines:
+#   - which trimming module is dispatched by pipeline.sh
+#   - which tool-specific variables are validated during preflight
+#   - which execution path is followed under SLURM
 PACKAGE_TO_USE="bbduk"
 
 ######################### BBDUK.SH ######################

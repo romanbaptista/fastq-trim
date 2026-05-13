@@ -1,19 +1,25 @@
 #!/bin/bash
 set -euo pipefail
 
-# Define modules directory
-MODULES_DIR="${PIPELINE_DIR}/modules"
+######################### GUARDS ##########################
+
+: "${MODULES_DIR:?MODULES_DIR not set (check PATHS section in run_pipeline.sh)}"
+: "${UTILS_DIR:?UTILS_DIR not set (check PATHS section in run_pipeline.sh)}"
+
+######################### SETUP ##########################
+
 # Define script name
-CURRENT_SCRIPT="$(basename "${BASH_SOURCE[0]}")"
+SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}" .sh)
 
-# Define module script array
-SCRIPT_ARRAY=(
-    'bbduk.sh'
-    'trimmomatic.sh'
-)
+######################## SOURCE ##########################
 
-echo "  RUNNING ${CURRENT_SCRIPT} ..."
-echo "  Checking module scripts..."
+# Source utils file
+source "${UTILS_DIR}/arrays.sh"
+
+######################### MAIN ############################
+
+echo "  RUNNING ${SCRIPT_NAME} ..."
+echo "  Checking for module scripts..."
 
 # Iterate through scripts
 for script in "${SCRIPT_ARRAY[@]}"; do
@@ -21,9 +27,12 @@ for script in "${SCRIPT_ARRAY[@]}"; do
     check_file_data "${MODULES_DIR}/${script}" || fail "   Please ensure file contains data: ${script}"
 done
 
+echo "  All module scripts confirmed"
+echo "  Checking for pipeline.sh ..."
+
 # Check for pipeline.sh
 check_file "${MODULES_DIR}/pipeline.sh" || fail "   Please ensure pipeline.sh exists"
 check_file_data "${MODULES_DIR}/pipeline.sh" || fail "   Please ensure pipeline.sh contains data"
 
-echo "  Module scripts confirmed"
-echo "  ${CURRENT_SCRIPT} COMPLETE"
+echo "  pipeline.sh confirmed"
+echo "  ${SCRIPT_NAME} COMPLETE"

@@ -1,10 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-# Define script name
-CURRENT_SCRIPT="$(basename "${BASH_SOURCE[0]}")"
+######################### SETUP ##########################
 
-echo "  RUNNING ${CURRENT_SCRIPT} ..."
+# Define script name
+SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}" .sh)
+
+######################### MAIN ############################
+
+echo "  RUNNING ${SCRIPT_NAME} ..."
 echo "  Checking input directory: ${INPUT_DIR}..."
 
 # Check input directory
@@ -20,4 +24,4 @@ if ! find "${INPUT_DIR}" -type f -name "*.fastq.gz" | grep -q .; then
 fi
 
 echo "  FASTQ files found"
-echo "  ${CURRENT_SCRIPT} COMPLETE"
+echo "  ${SCRIPT_NAME} COMPLETE"

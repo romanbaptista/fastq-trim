@@ -1,10 +1,9 @@
 # `modules`
+This directory contains the execution modules for the `fastq-trim` pipeline.
 
-This directory contains the implementation modules for the trim pipeline.
+Each module is responsible for exactly one execution role and operates under a strict, preflight‑validated contract designed for HPC environments where compute‑intensive work must be offloaded to the scheduler.
 
-Each module is responsible for exactly one pipeline role and is executed under SLURM as part of a deterministic, preflight‑validated workflow.
-
-Modules are coordinated by modules/pipeline.sh, which is submitted by `run_pipeline.sh` only after all preflight checks have completed successfully.
+Modules are coordinated by `modules/pipeline.sh`, which is invoked by `run_pipeline.sh` only after all preflight checks have completed successfully.
 
 # Design Contract
 All modules in this directory adhere to the following principles:
@@ -12,143 +11,155 @@ All modules in this directory adhere to the following principles:
 - Explicit, absolute input and output paths
 - Strong separation between validation and execution
 - Restart‑safe behavior where possible
-- Deterministic execution under SLURM
+- Deterministic execution model
 - No reliance on implicit working directories
 - No reliance on undeclared global state
+- No duplication of preflight validation logic
 - Assumption that all preflight invariants have already been enforced
+- Strict consumption of the execution ABI (`EXPORT_ARRAY`)
 
-Modules **do not repeat preflight checks** and may assume that all required inputs, tools, and configuration variables are valid at runtime.
+Modules do not perform input validation, tool installation, or configuration checks.
+All such guarantees are established by the preflight layer and enforced via guarded environment variables.
 
 # Execution Model
-The trim pipeline uses a single‑dispatch execution model:
-- Exactly one trimming module is executed per pipeline run
-- Tool selection is controlled by PACKAGE_TO_USE in config.sh
-- All SLURM resource requests are defined centrally by the pipeline orchestrator
+`fastq-trim` is a scheduler‑backed pipeline:
+- Orchestration logic runs on the login node
+- Execution modules run as SLURM jobs on compute nodes
+- Execution behavior is controlled via an explicit environment contract
 
-The current set of modules is:
+The execution flow is:
+```text
+run_pipeline.sh
+  └─ pipeline.sh
+       └─ bbduk.sh / trimmomatic.sh
+```
 
-pipeline.sh
-bbduk.sh
-trimmomatic.sh
+Only one execution module is dispatched per pipeline run, based on `PACKAGE_TO_USE`.
 
-
-Execution and SLURM submission logic are explicitly defined in `modules/pipeline.sh`.
+All SLURM submissions occur only after successful preflight validation.
 
 # Module Overview
-
 ## `pipeline.sh`
-Internal SLURM orchestrator for the trim pipeline.
+Internal orchestrator for the `fastq-trim` pipeline.
 
 ### Role
-`pipeline.sh` is responsible for coordinating execution of the trimming stage under SLURM. It is not intended to be executed directly by end users.
+`pipeline.sh` coordinates submission of downstream execution modules. It is not intended to be executed directly by end users.
 
 ### Workflow
 - Runs as a SLURM job submitted by `run_pipeline.sh`
-- Validates the presence of required inherited environment variables
-- Defines and creates the pipeline‑wide output directory
-- Extends the explicit environment export contract
-- Dispatches exactly one trimming module based on `PACKAGE_TO_USE`
-- Aborts immediately if job submission fails
+- Guards all required variables defined in the execution ABI
+- Assumes all preflight checks have succeeded
+- Dispatches exactly one execution module based on `PACKAGE_TO_USE`
+- Passes the precomputed execution ABI (`SBATCH_EXPORTS`) to the module
+- Captures the submitted job ID for diagnostics
 
-`pipeline.sh` does not perform any trimming itself.
+`pipeline.sh` does not perform trimming itself.
 
 ### Guarantees
-- Submits only one trimming module
-- Passes an explicit, curated environment to downstream jobs
-- Does not duplicate preflight validation logic
-- Produces a single SLURM log for pipeline‑level orchestration
+- Deterministic orchestration
+- No mutation of the execution ABI
+- No data processing
+- No tool execution
+- No duplication of preflight logic
 
 ## `bbduk.sh`
-Runs adapter removal and quality trimming using BBDUK from the BBTools suite.
+Execution module for FASTQ trimming using BBDUK.
+
+### Role
+Processes paired FASTQ files for each sample using the bbtools suite.
 
 ### Inputs
-- `INPUT_DIR` (directory containing sample subdirectories)
-- BBDUK executable and adapter FASTA (validated in preflight)
-- BBDUK‑specific configuration variables from `config.sh`
-- SLURM‑allocated CPUs and memory
+- Sample directories under `INPUT_DIR`
+- Pipeline-owned configuration variables (e.g. `BBDUK_TRIMQ`, `BBDUK_MINLEN`)
+- SLURM‑injected variables (`SLURM_CPUS_PER_TASK`)
+- Execution ABI (`EXPORT_ARRAY`, `SBATCH_EXPORTS`)
 
 ### Expected Input Layout
-Each sample must reside in its own subdirectory under INPUT_DIR and contain exactly one paired FASTQ set:
-
+```text
 INPUT_DIR/
 ├── sample1/
 │   ├── sample1_1.fastq.gz
 │   └── sample1_2.fastq.gz
-
+```
 
 ### Workflow
-- Iterates over sample directories in `INPUT_DIR`
-- Enforces exactly one paired FASTQ dataset per sample
-- Creates a per‑sample output directory
-- Executes BBDUK using SLURM‑allocated resources
-- Writes trimmed FASTQs and a per‑sample log file
-- Aborts immediately on sample‑level errors while preserving logs
+- Iterates over sample-specific directories
+- Identifies paired FASTQ files using deterministic glob patterns
+- Enforces exactly one pair per sample
+- Creates a per-sample output directory
+- Runs BBDUK using SLURM-allocated resources
+- Writes trimmed FASTQ files
+- Logs all output per sample
+- Skips samples where outputs already exist
 
 ### Outputs
-
+```text
 output/trim/
 └── sample1/
     ├── sample1_1.trim.fastq.gz
     ├── sample1_2.trim.fastq.gz
-    └── sample1_trim.log
-
+    └── sample1.log
+```
 
 ### Guarantees
-- No reliance on the working directory
+- One sample per execution unit
 - No shared state between samples
-- Deterministic trimming per sample
-- Safe to rerun if outputs already exist
-- Assumes all tool and adapter requirements were satisfied in preflight
+- Restart‑safe execution
+- Deterministic file discovery
+- Assumes all tool and input validation completed in preflight
 
 ## `trimmomatic.sh`
-Runs adapter removal and quality trimming using Trimmomatic.
+Execution module for FASTQ trimming using trimmomatic.
+
+### Role
+Processes paired FASTQ files for each sample using the trimmomatic Java application.
 
 ### Inputs
-- INPUT_DIR (directory containing sample subdirectories)
-- Trimmomatic JAR and adapter FASTA (validated in preflight)
-- Java runtime (validated in preflight)
-- Trimmomatic‑specific configuration variables from config.sh
-- SLURM‑allocated CPUs and memory
+- Sample directories under `INPUT_DIR`
+- Pipeline-owned configuration variables (e.g. trimming parameters)
+- SLURM‑injected variables (`SLURM_CPUS_PER_TASK`)
+- Execution ABI (`EXPORT_ARRAY`, `SBATCH_EXPORTS`)
 
 ### Expected Input Layout
-Identical to bbduk.sh:
-
+```text
 INPUT_DIR/
 ├── sample1/
 │   ├── sample1_1.fastq.gz
 │   └── sample1_2.fastq.gz
-
+```
 
 ### Workflow
-- Iterates over sample directories in INPUT_DIR
-- Enforces exactly one paired FASTQ dataset per sample
-- Executes Trimmomatic in paired‑end mode
-- Uses adapter clipping and quality filtering parameters from config.sh
-- Writes trimmed outputs and per‑sample logs
+- Iterates over sample-specific directories
+- Identifies exactly one paired FASTQ dataset per sample
+- Creates a per-sample output directory
+- Runs trimmomatic in paired-end mode
+- Writes paired and unpaired trimmed reads
+- Logs execution per sample
+- Skips samples where output already exists
 
 ### Outputs
-
+```text
 output/trim/
 └── sample1/
     ├── sample1.trim_1P.fastq.gz
     ├── sample1.trim_2P.fastq.gz
     ├── sample1.trim_1U.fastq.gz
     ├── sample1.trim_2U.fastq.gz
-    └── sample1_trim.log
-
-(Output naming follows Trimmomatic semantics.)
+    └── sample1.log
+```
 
 ### Guarantees
-- No reliance on implicit system state
-- Correct use of SLURM‑allocated resources
-- Deterministic behavior given identical inputs
-- Safe to rerun where outputs already exist
-- No validation duplication beyond preflight
+- One sample per execution unit
+- No shared state between samples
+- Restart‑safe execution
+- Deterministic trimming given identical inputs
+- Assumes all tool and input validation completed in preflight
 
 # Notes
-
-- All module scripts assume that preflight validation has already succeeded
-- SLURM resource allocation is centralized and not user‑defined at module level
-- No module modifies global system state
-- No module requires interactive user input
-- All paths are absolute and derived from exported pipeline variables
+- All modules assume preflight validation has completed successfully
+- No module installs software or performs environment configuration
+- All filesystem paths are absolute and derived from the execution ABI
+- All required variables are guarded at entry
+- No module requires interactive input
+- The pipeline is safe to re-run to resume partial trimming
+- Downstream pipelines (alignment, variant calling, etc.) may safely consume outputs

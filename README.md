@@ -1,82 +1,99 @@
-# `trim`
+# `fastq-trim`
 
 # Overview
-This repository contains the trim pipeline — a modular, SLURM‑compatible workflow for:
+This repository contains the `fastq-trim` pipeline — a modular, HPC‑compatible workflow for:
 
-> Adapter removal and quality trimming of compressed FASTQ sequencing data using BBDUK or Trimmomatic in a reproducible, HPC‑friendly manner.
+> Adapter removal and quality trimming of paired-end FASTQ sequencing data in a reproducible, restart-safe, and execution-contract–driven manner.
 
-The pipeline is designed specifically for HPC environments and provides:
-- Validation of user‑supplied input FASTQ directories
-- Tool‑specific preflight checks and dependency enforcement
-- Flexible selection between BBDUK and Trimmomatic
-- Robust SLURM job orchestration with explicit environment contracts
-- Per‑sample trimming with isolated logs
-- Centralised, deterministic output structure for downstream workflows
+The pipeline is designed to operate downstream of sequencing data generation or QC pipelines and assumes that FASTQ files are already organised into a deterministic, sample-specific directory layout.
 
-All trimmed outputs are written to a dedicated output/ directory, enabling seamless continuation into alignment, variant calling, or additional QC pipelines.
+The pipeline is designed specifically for HPC environments and supports:
+- Explicit environment contracts for deterministic execution across SLURM boundaries
+- Tool‑agnostic trimming via selectable modules (e.g. BBDUK or trimmomatic)
+- Strict preflight validation before any SLURM jobs are submitted
+- Per-sample output isolation enabling safe restart and partial completion
+- Canonical pipeline structure defined via shared arrays and enforced contracts
+
+All pipeline outputs are written to a dedicated output/ directory, enabling clean chaining into downstream alignment, variant calling, or analysis workflows.
 
 # Repository Structure
 ```text
-trim/
+fastq-trim/
 ├── README.md                               # Top-level overview (this file)
-├── config.sh                               # User configuration (input paths, resources, parameters)
-├── run_pipeline.sh                         # Entry point (preflight + SLURM submission)
-├── preflight/                              # Pipeline preflight validation
-│   ├── preflight_input.sh                  # Input directory and FASTQ validation
-│   ├── preflight_variables.sh              # Core configuration variables
-│   ├── preflight_scripts.sh                # Module script integrity checks
-│   ├── preflight_commands.sh               # Required external command checks
-│   ├── preflight_bbduk.sh                  # BBDUK-specific validation and installation
-│   └── preflight_trimmomatic.sh            # Trimmomatic-specific validation and installation
-├── utils/                                  # Shared utility functions
-│   ├── functions_base.sh                   # Core validation and helper functions
-│   ├── functions_bbtools.sh                # BBTools install/check helpers
-│   └── functions_trimmomatic.sh            # Trimmomatic install/check helpers
-├── modules/                                # Pipeline modules (executed under SLURM)
-│   ├── pipeline.sh                         # SLURM pipeline orchestrator
+├── config.sh                               # User configuration (inputs and parameters)
+├── run_pipeline.sh                         # Entry point (login-node orchestration)
+├── utils/                                  # Shared utilities and canonical definitions
+│   ├── arrays.sh                           # Source of truth for pipeline structure and ABI
+│   ├── functions_base.sh                   # General-purpose helper functions
+│   ├── functions_bbtools.sh                # bbtools install/check helpers
+│   └── functions_trimmomatic.sh            # trimmomatic install/check helpers
+├── preflight/                              # Preflight validation layer
+│   ├── preflight.sh
+│   ├── preflight_input.sh
+│   ├── preflight_variables.sh
+│   ├── preflight_scripts.sh
+│   ├── preflight_commands.sh
+│   ├── preflight_bbduk.sh
+│   └── preflight_trimmomatic.sh
+├── modules/                                # Execution modules
+│   ├── pipeline.sh                         # Internal orchestrator (SLURM job)
 │   ├── bbduk.sh                            # BBDUK trimming module
-│   └── trimmomatic.sh                      # Trimmomatic trimming module
-└── output/                                 # Pipeline-generated data (created at runtime)
+│   └── trimmomatic.sh                      # trimmomatic trimming module
+└── output/                                 # Pipeline-generated results (created at runtime)
 ```
 
 # Workflow
-At a high level, the trim pipeline proceeds as follows:
+At a high level, the pipeline proceeds as follows:
 
 ### Preflight validation
-- Confirms required user variables are set and non‑empty
-- Verifies the input directory exists and contains `.fastq.gz` files
-- Ensures all module scripts are present and non‑empty
-- Checks for all required external commands
-- Validates or installs the selected trimming tool (BBDUK or Trimmomatic)
-- Confirms required adapter files and executables are present and usable
+- Verifies all required framework-level commands are available
+- Confirms all required user configuration variables are set and non-empty
+- Validates presence and integrity of module scripts
+- Confirms the input directory exists and contains FASTQ data
+- Ensures tool-specific dependencies are present or installs them deterministically
+- Guarantees all execution invariants before any job submission
 
-All preflight checks must pass before any SLURM jobs are submitted.
+All validation is authoritative and occurs before any SLURM jobs are submitted.
 
 ### Pipeline orchestration
-Submits a single SLURM job (`pipeline.sh`) that:
-- Establishes a deterministic environment contract
-- Defines a pipeline‑wide output directory
-- Dispatches exactly one trimming module based on user selection
+- Submits an internal orchestrator job (`modules/pipeline.sh`) from the login node
+- Defines a strict execution ABI via `EXPORT_ARRAY`
+- Passes only explicitly declared variables to downstream jobs via `--export`
+- Dispatches exactly one trimming module based on user configuration
 
-### Trimming (BBDUK or Trimmomatic)
-- Iterates over sample‑specific subdirectories within the input directory
-- Enforces exactly one paired FASTQ set per sample
-- Runs trimming independently per sample
-- Writes trimmed FASTQ files and logs into per‑sample output directories
-- Fails fast on sample‑level errors while preserving logs for diagnosis
+### Trimming execution
+The selected module executes under SLURM and:
+- Iterates over sample-specific directories within the input directory
+- Processes exactly one paired FASTQ dataset per sample
+- Writes outputs and logs to per-sample directories
+- Skips samples with existing outputs to support restart-safe execution
+- Uses only explicitly exported variables and SLURM-allocated resources
 
-All execution is coordinated through SLURM to ensure reproducible, scalable operation.
+Modules assume all preflight guarantees are satisfied and do not revalidate inputs.
 
 # Configuration
-All user‑tunable parameters are defined in config.sh.
+All user‑tunable parameters are defined in `config.sh`.
 
-At minimum, the user must specify:
-```bash
-INPUT_DIR="/path/to/sample_directories"
-PACKAGE_TO_USE="bbduk"   # or "trimmomatic"
-```
+| Variable | Description |
+|----------|-------------|
+| `INPUT_DIR` | Directory containing sample-specific subdirectories, each with exactly one paired set of `.fastq.gz` files |
+| `PACKAGE_TO_USE` | Trimming tool to use (`bbduk` or `trimmomatic`) |
+| `BBDUK_CPUS` | Number of CPU threads allocated per BBDUK task |
+| `BBDUK_MEM_PER_CPU` | Memory allocated per CPU for BBDUK |
+| `BBDUK_TRIMQ` | Quality threshold for base trimming in BBDUK |
+| `BBDUK_MINLEN` | Minimum read length retained after BBDUK trimming |
+| `TRIM_CPUS` | Number of CPU threads allocated per trimmomatic task |
+| `TRIM_MEM_PER_CPU` | Memory allocated per CPU for trimmomatic |
+| `TRIM_MISMATCH` | Maximum mismatches allowed in the adapter seed for trimmomatic |
+| `TRIM_LEADING` | Quality threshold for trimming low-quality bases from the start of reads |
+| `TRIM_TRAILING` | Quality threshold for trimming low-quality bases from the end of reads |
+| `TRIM_WINDOW` | Sliding window size (in bases) for quality trimming |
+| `TRIM_CLIP` | Average quality threshold within the sliding window |
+| `TRIM_DISCARD` | Minimum read length retained after all trimmomatic trimming steps |
 
-Each sample is expected to reside in its own subdirectory under INPUT_DIR, containing exactly one paired FASTQ set:
+# Required Input Layout
+The pipeline expects FASTQ files organised per sample:
+
 ```text
 INPUT_DIR/
 ├── sample1/
@@ -87,75 +104,49 @@ INPUT_DIR/
 │   └── sample2_2.fastq.gz
 ```
 
-Additional tool‑specific parameters are available and validated automatically.
-
-| Variable | Description |
-|--------|-------------|
-| `INPUT_DIR` | Absolute path to the directory containing sample-specific subdirectories, each holding exactly one paired `.fastq.gz` dataset |
-| `PACKAGE_TO_USE` | Trimming tool to use: `bbduk` or `trimmomatic` |
-| `BBDUK_CPUS` | Number of CPUs allocated per BBDUK SLURM job |
-| `BBDUK_MEM_PER_CPU` | Memory allocated per CPU for BBDUK |
-| `BBDUK_TRIMQ` | Quality threshold for base trimming in BBDUK |
-| `BBDUK_MINLEN` | Minimum read length retained after BBDUK trimming |
-| `TRIM_CPUS` | Number of CPUs allocated per Trimmomatic SLURM job |
-| `TRIM_MEM_PER_CPU` | Memory allocated per CPU for Trimmomatic |
-| `TRIM_MISMATCH` | Maximum allowed mismatches in the adapter seed for Trimmomatic |
-| `TRIM_LEADING` | Quality threshold for trimming low-quality bases from the start of reads |
-| `TRIM_TRAILING` | Quality threshold for trimming low-quality bases from the end of reads |
-| `TRIM_WINDOW` | Window size (in bases) used for sliding-window quality trimming |
-| `TRIM_CLIP` | Average quality threshold required within the sliding window |
-| `TRIM_DISCARD` | Minimum read length retained after all Trimmomatic trimming steps |
-
-All variables are validated in preflight; unset or empty values cause the pipeline to exit before submission.
+Each sample directory must contain exactly one paired dataset.
 
 # Usage
-Navigate to the pipeline root directory and run:
+Navigate to the root of the repository and run:
+
 ```bash
-bash run_pipeline.sh
+run_pipeline.sh
 ```
 
 This will:
-- Execute all preflight validation steps
-- Install or verify required trimming tools if needed
-- Submit the trimming pipeline to SLURM
-- Exit cleanly after submission
+- Perform all preflight validation checks
+- Install or verify required tools
+- Submit the trimming workflow to the cluster via SLURM
 
-Once submitted, users may safely disconnect from the cluster.
+The pipeline is restart‑safe; re-running the entrypoint will skip completed samples.
 
 # Outputs
-All pipeline outputs are written under output/, grouped by sample.
+All pipeline outputs are written under `output/`, grouped by module and sample.
 
-Example structure after a complete run:
+Example structure after completion:
+
 ```text
 output/
 └── trim/
     ├── sample1/
     │   ├── sample1_1.trim.fastq.gz
     │   ├── sample1_2.trim.fastq.gz
-    │   └── sample1_trim.log
+    │   └── sample1.log
     └── sample2/
-        ├── sample2_1.trim.fastq.gz
-        ├── sample2_2.trim.fastq.gz
-        └── sample2_trim.log
+        └── ...
 ```
 
-Logs include:
-- `run_pipeline.log` (launcher‑level, overwritten per run)
-- `pipeline.<jobid>.log` (pipeline orchestration)
-- Per‑sample trimming logs within each sample directory
-
-This structure enables precise troubleshooting without ambiguity across samples or runs.
+Each sample is fully isolated, enabling independent failure handling and downstream processing.
 
 # Further Documentation
 For detailed documentation on individual components, see:
-- `preflight/README.md` — preflight validation design and responsibilities
-- `modules/README.md` — trimming modules and SLURM execution details
-- `utils/README.md` — shared utility functions and helpers
+- preflight/README.md — validation guarantees and execution ordering
+- modules/README.md — execution model and module contracts
+- utils/README.md — shared utilities and ABI definitions
 
 # Citation
 If you use this pipeline in published work, please cite:
+> Baptista, R. _fastq-trim: A contract-driven HPC pipeline for FASTQ trimming_.
+> GitHub repository: https://github.com/romanbaptista/fastq-trim
 
-> Baptista, R. trim: A SLURM‑compatible pipeline for FASTQ trimming using BBDUK and Trimmomatic.
-GitHub repository: https://github.com/romanbaptista/trim
-
-Optionally include the specific commit hash or release tag used for analysis.
+Optionally include the commit hash or release tag used for analysis.

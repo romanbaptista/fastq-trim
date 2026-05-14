@@ -45,6 +45,17 @@ LOG_FILE="${LOG_DIR}/${SCRIPT_NAME}.log"
 # Redirect stdout/stderr to terminal and log file
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
+######################### EXPORTS #########################
+
+# Iterate over items to export
+for var in "${EXPORT_ARRAY[@]}";do
+    export "${var}"
+done
+
+# Snapshot EXPORT_ARRAY
+SBATCH_EXPORTS="$(IFS=,; echo "${EXPORT_ARRAY[*]}")"
+export SBATCH_EXPORTS
+
 ######################### CHECKS ##########################
 
 echo
@@ -56,17 +67,6 @@ echo
 echo "  Selected trimming method: ${PACKAGE_TO_USE}"
 echo "Preflight COMPLETE"
 echo "Moving to main execution"
-
-######################### EXPORTS #########################
-
-# Iterate over items to export
-for var in "${EXPORT_ARRAY[@]}";do
-    export "${var}"
-done
-
-# Snapshot EXPORT_ARRAY
-SBATCH_EXPORTS="$(IFS=,; echo "${EXPORT_ARRAY[*]}")"
-export SBATCH_EXPORTS
 
 ######################### MAIN ############################
 

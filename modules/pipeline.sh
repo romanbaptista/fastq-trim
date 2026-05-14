@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-
 ######################### GUARDS ##########################
 
 GUARD_ARRAY=(

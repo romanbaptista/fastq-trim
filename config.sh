@@ -49,44 +49,44 @@ BBDUK_MINLEN=20
 
 ######################### TRIMMOMATIC ###################
 
-# TRIM_CPUS:
+# TRIMMOMATIC_CPUS:
 # Number of CPU threads allocated per trimmomatic task.
 # Increasing this value can improve conversion speed but will increase
 # per-job CPU usage.(4 is normal)
-TRIM_CPUS=4
+TRIMMOMATIC_CPUS=4
 
-# TRIM_MEM_PER_CPU:
+# TRIMMOMATIC_MEM_PER_CPU:
 # Amount of memory allocated per CPU thread for trimmomatic.
 # This value is typically passed to the scheduler as memory-per-CPU
 # and should be adjusted based on dataset size and cluster policy (2-4 is normal).
-TRIM_MEM_PER_CPU=4G
+TRIMMOMATIC_MEM_PER_CPU=4G
 
-# TRIM_MISMATCH:
+# TRIMMOMATIC_MISMATCH:
 # Maximum number of mismatches allowed in the adapter seed during adapter
 # clipping. Controls how tolerant Trimmomatic is to imperfect adapter matches.
-TRIM_MISMATCH=2
+TRIMMOMATIC_MISMATCH=2
 
-# TRIM_LEADING:
+# TRIMMOMATIC_LEADING:
 # Removes low-quality bases from the beginning of the read if their
 # Phred score is below this threshold.
-TRIM_LEADING=3
+TRIMMOMATIC_LEADING=3
 
-# TRIM_TRAILING:
+# TRIMMOMATIC_TRAILING:
 # Removes low-quality bases from the end of the read if their
 # Phred score is below this threshold.
-TRIM_TRAILING=3
+TRIMMOMATIC_TRAILING=3
 
-# TRIM_WINDOW:
+# TRIMMOMATIC_WINDOW:
 # Size of the sliding window (in bases) used for quality trimming.
 # Trimmomatic calculates the average quality across this window.
-TRIM_WINDOW=15
+TRIMMOMATIC_WINDOW=15
 
-# TRIM_CLIP:
+# TRIMMOMATIC_CLIP:
 # Quality threshold used during sliding-window trimming. If the average
 # quality within the window falls below this value, the read is trimmed.
-TRIM_CLIP=4
+TRIMMOMATIC_CLIP=4
 
-# TRIM_DISCARD:
+# TRIMMOMATIC_DISCARD:
 # Minimum read length to keep after all trimming steps. Reads shorter than
 # this value are discarded to avoid low-information alignments.
-TRIM_DISCARD=36
+TRIMMOMATIC_DISCARD=36

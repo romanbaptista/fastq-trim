@@ -1,150 +1,168 @@
 # `utils`
-This directory contains shared utility functions used by the `fastq-trim` pipeline.
 
-The scripts in `utils/` provide reusable, strictly validated helper functions that support:
-- Preflight validation
-- Tool installation and verification
-- Defensive error handling
-- Deterministic pipeline behavior under strict Bash execution
-- Canonical definition of pipeline structure and execution ABI
+# Overview
+The `utils/` directory contains all static variable definitions used throughout the `fastq-trim` pipeline.
 
-Utility scripts are sourced by `run_pipeline.sh`, preflight scripts, and (where required) execution modules.
+These scripts define:
+- directory paths
+- tool installation parameters
+- tool-specific configuration variables
 
-# Design Contract
-All utility scripts adhere to the following principles:
-- Pure helper logic only (no pipeline orchestration)
-- Safe operation under `set -euo pipefail`
-- Explicit, readable control flow
-- Clear and actionable error messages
-- No reliance on implicit environment state
-- No modification of global system settings
-- Portable across HPC environments
-- Canonical definition of pipeline structure via arrays
+Importantly, `utils/` is a pure definition layer — it contains no logic, validation, or execution.
 
-Utility functions are stateless and rely entirely on arguments and inherited environment variables.
+# Design Principles
+The `utils/` layer follows strict design rules:
+- Definitions only — no functions or control flow
+- No validation — all checks occur in the preflight layer
+- No side effects — sourcing only sets variables
+- Centralised variable ownership — each variable is defined exactly once
+- Deterministic behaviour — no runtime decisions or dynamic modification
 
-# Utility Script Overview
+These principles ensure clean separation between:
+- what is defined (`utils/`)
+- what is validated (`preflight/`)
+- what is executed (`pipeline/` and modules)
+
+# Role in the Pipeline
+The `utils/` layer acts as the source of truth for derived and tool-related variables, particularly:
+- directory structure
+- tool download parameters
+- tool-specific static configuration
+
+| Aspect | Description |
+|--------|------------|
+| Purpose | Static variable definitions |
+| Contains logic? | No |
+| Performs validation? | No |
+| Consumed by | Preflight and execution layers |
+| Scope | Paths and tool configuration parameters |
+
+Variables defined in `utils/` are:
+- consumed by preflight scripts for validation and installation
+- used to construct derived runtime state (e.g. output directories)
+- relied upon by tool preflight scripts for deterministic installation
+
+This ensures that all shared parameters are:
+- defined once
+- validated centrally
+- used consistently across all layers
+
+# File Overview
+The directory is organised into:
+- a shared path definition file (`utils_paths.sh`)
+- tool-specific configuration files (`utils_<tool>.sh`)
+
+Each file:
+- defines variables within its domain
+- contains no logic
+- introduces no side effects
+
+| File | Responsibility |
+|------|----------------|
+| `utils_paths.sh` | Defines core directory variables and initialises `DIR_ARRAY` |
+| `utils_bbtools.sh` | Defines BBTools download parameters (URL, tarball) |
+| `utils_trimmomatic.sh` | Defines Trimmomatic download parameters (URL, tarball) |
+
+## utils_paths.sh
+Defines all core directory paths derived from `ROOT_DIR`.
+
+Typical variables include:
 ```text
-arrays.sh
-functions_base.sh
-functions_bbtools.sh
-functions_trimmomatic.sh
+ARRAY_DIR
+FUNCTIONS_DIR
+PIPELINE_DIR
+PREFLIGHT_DIR
+UTILS_DIR
+OUTPUT_DIR
 ```
 
-Each utility script serves a narrow, well‑defined purpose and is designed to be reused across multiple pipeline stages.
+It also initialises `DIR_ARRAY`, which defines the base set of pipeline-owned writable directories.
 
-## `arrays.sh`
-Defines the canonical structure and execution contract of the pipeline.
+This array is intentionally minimal and typically includes:
+```text
+OUTPUT_DIR
+```
 
-### Responsibilities
-Defines ordered lists of:
-- Preflight scripts (`PREFLIGHT_ARRAY`)
-- Execution modules (`SCRIPT_ARRAY`)
-- Defines the execution ABI (`EXPORT_ARRAY`)
-- Defines required commands (`COMMAND_ARRAY`)
-- Defines required configuration variables (`VARIABLE_ARRAY`)
+It is later extended during preflight to include pipeline-specific directories such as:
 
-### Guarantees
-- Provides a single source of truth for pipeline structure
-- Ensures consistent validation and execution ordering
-- Defines the complete set of pipeline-owned variables propagated across SLURM boundaries
+```text
+PACKAGE_OUTDIR
+```
 
-### Design Note
-- `EXPORT_ARRAY` defines the pipeline execution ABI and must not be modified downstream.
-- `SBATCH_EXPORTS` is derived from this array and passed across process boundaries.
+This file defines the directory structure contract of the pipeline.
 
-## `functions_base.sh`
-Provides core validation and helper functions used throughout the pipeline.
+## utils_bbtools.sh
+Defines all static parameters required for downloading and installing BBTools.
+Includes:
+- `BBTOOLS_URL` — location of the release archive
+- `BBTOOLS_TARBALL` — archive filename
 
-### Responsibilities
-- Validates files, directories, variables, and commands
-- Enforces non-empty configuration values
-- Provides consistent error handling and messaging
-- Guards against common Bash failure modes
+These variables are consumed by:
+- `functions_bbtools.sh` (download/extract logic)
+- `preflight_bbtools.sh` (validation and installation orchestration)
 
-### Functions
+No download, extraction, or validation logic is included here — this script is purely declarative.
 
-| Function | Purpose |
-|---------|---------|
-| `check_file` | Confirms that a regular file exists |
-| `check_file_data` | Confirms that a file exists and is non-empty |
-| `check_directory` | Confirms that a directory exists |
-| `check_variable` | Confirms that a variable is set and non-empty |
-| `check_command` | Confirms that a command is available in `PATH` |
-| `check_executable` | Confirms that a file exists and is executable |
-| `check_arg` | Confirms that required function arguments are provided |
-| `fail` | Prints an error message and exits immediately |
+## utils_trimmomatic.sh
+Defines all static parameters required for downloading and installing Trimmomatic.
 
-These functions are used extensively by preflight scripts to enforce pipeline invariants before SLURM job submission.
+Includes:
+- `TRIMMOMATIC_URL` — location of the release archive
+- `TRIMMOMATIC_TARBALL` — archive filename
 
-## `functions_bbtools.sh`
-Provides bbtools‑specific helpers for verification and installation.
+These variables are consumed by:
+- `functions_trimmomatic.sh` (download/extract logic)
+- `preflight_trimmomatic.sh` (validation and installation orchestration)
 
-### Responsibilities
-- Detects whether bbtools is installed and usable
-- Downloads and installs bbtools if missing
-- Verifies the presence, executability, and integrity of `bbduk.sh`
-- Verifies adapter FASTA presence and validity
-- Supports deterministic tool setup during preflight
+As with all `utils/` scripts, this file contains no logic.
 
-### Functions
+# Variable Ownership Model
+Each variable is defined in the layer where its meaning originates:
+- global directory structure → `utils_paths.sh`
+- tool configuration parameters → `utils_<tool>.sh`
+- pipeline-derived variables → preflight scripts
 
-| Function | Purpose |
-|---------|---------|
-| `check_bbtools` | Verifies bbtools installation, BBDUK executable, and adapter file |
-| `download_bbtools` | Downloads a pinned bbtools release archive |
-| `extract_bbtools` | Extracts and normalises bbtools installation |
-| `install_bbtools` | Installs and verifies bbtools if not already present |
+This ensures:
+- no duplication
+- no accidental redefinition
+- no hidden dependencies
 
-All bbtools installation and verification is performed only during preflight, never during compute jobs.
+Each variable has a clear, single owner within the pipeline.
 
-## `functions_trimmomatic.sh`
-Provides trimmomatic‑specific helpers for verification and installation.
+# Usage Pattern
+Utility scripts are sourced by preflight scripts and, where required, execution modules:
 
-### Responsibilities
-- Detects whether trimmomatic is installed and usable
-- Downloads and installs trimmomatic if missing
-- Verifies presence and integrity of the trimmomatic JAR
-- Confirms availability of a Java runtime
-- Supports deterministic tool setup during preflight
+```bash
+source "${UTILS_DIR}/utils_paths.sh"
+source "${UTILS_DIR}/utils_bbtools.sh"
+source "${UTILS_DIR}/utils_trimmomatic.sh"
+```
 
-### Functions
-| Function | Purpose |
-|---------|---------|
-| `check_trimmomatic` | Verifies trimmomatic directory, JAR file, and Java availability |
-| `download_trimmomatic` | Downloads a pinned trimmomatic release archive |
-| `extract_trimmomatic` | Extracts and normalises trimmomatic installation |
-| `install_trimmomatic` | Installs and verifies trimmomatic if not already present |
+Variables defined here are:
+- validated during preflight
+- used to construct pipeline state
+- passed downstream via the execution ABI when required
 
-As with bbtools, all trimmomatic setup occurs exclusively during preflight.
+They are never modified after definition.
 
-# Usage
-Utility scripts are not intended to be executed directly; they are sourced where required.
+# Key Rules
+- Do not include logic (no loops, no conditionals)
+- Do not perform validation
+- Do not modify variables after definition
+- Do not create or mutate runtime state
+- Ensure variables are clearly named and unambiguous
+- Keep all definitions deterministic and reproducible
 
-`arrays.sh` is sourced by:
-- `run_pipeline.sh`
-- preflight scripts
+# Summary
+The `utils/` directory defines the static configuration layer of the `fastq-trim` pipeline.
 
-`functions_base.sh` is sourced by:
-- `run_pipeline.sh`
-- all preflight scripts
+It ensures that:
+- all shared paths and tool parameters are declared in one place
+- variables are consistently defined and traceable
+- preflight scripts can perform validation deterministically
+- execution layers operate on a stable, pre-validated environment
 
-`functions_bbtools.sh` and `functions_trimmomatic.sh` are sourced only within tool-specific preflight scripts.
-
-Execution modules do not rely on utility functions and instead consume only the execution ABI.
-
-# Error Handling
-All utility functions are designed to:
-- Fail immediately on invalid input
-- Emit concise, context-aware error messages
-- Prevent execution from progressing in an unsafe state
-
-This ensures that failures occur early, at the validation stage, rather than during compute jobs.
-
-# Notes
-- Utility functions intentionally duplicate no validation logic found elsewhere
-- All path resolution is handled at the pipeline layer (`run_pipeline.sh`)
-- Functions make no assumptions about SLURM execution context
-- Tool installation is deterministic and restart-safe
-- Arrays define the canonical pipeline structure and must remain immutable
-- Adding new tools requires corresponding utility helpers and preflight integration
+This separation is fundamental to maintaining a:
+- reproducible
+- portable
+- contract-driven HPC pipeline architecture

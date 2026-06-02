@@ -1,42 +1,57 @@
 #!/bin/bash
 set -euo pipefail
 
-######################### GUARDS ##########################
+######################### GUARDS #########################
 
-: "${PREFLIGHT_DIR:?PREFLIGHT_DIR not set (check PATHS section in run_pipeline.sh)}"
-: "${PREFLIGHT_ARRAY:?PREFLIGHT_ARRAY not set (check arrays.sh)}"
-: "${UTILS_DIR:?UTILS_DIR not set (check PATHS section in run_pipeline.sh)}"
+GUARD_ARRAY=(
+    ARRAY_DIR
+    PREFLIGHT_DIR
+    PACKAGE_TO_USE
+)
+
+for var in "${GUARD_ARRAY[@]}"; do
+    variable_check_nonempty "${var}" || fail_message "Variable is empty or not defined: ${var}"
+done
 
 ######################### SETUP ##########################
 
 # Define script name
-SCRIPT_NAME=$(basename "${BASH_SOURCE[0]}" .sh)
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
 
-######################### MAIN ############################
+######################### SOURCE #########################
 
-echo "  RUNNING ${SCRIPT_NAME} ..."
+# Source array
+source "${ARRAY_DIR}/array_preflight.sh"
+
+######################### CHECKS #########################
+
+variable_check_nonempty PREFLIGHT_ARRAY || fail_message "PREFLIGHT_ARRAY is empty or is not set"
+array_check_nonempty PREFLIGHT_ARRAY || fail_message "PREFLIGHT_ARRAY has no elements"
+
+######################### MAIN ###########################
+
+echo
+echo "RUNNING ${SCRIPT_NAME} ..."
+echo "  Running preflight scripts..."
 
 # Check for selected package
 case "${PACKAGE_TO_USE}" in
     bbduk)
-        # Define TOOL_PREFLIGHT
-        TOOL_PREFLIGHT="preflight_bbduk.sh"
+        TOOL_PREFLIGHT="preflight_bbtools.sh"
         ;;
     trimmomatic)
-        # Define TOOL_PREFLIGHT
         TOOL_PREFLIGHT="preflight_trimmomatic.sh"
         ;;
     *)
-        fail "  ERROR: Invalid PACKAGE_TO_USE: ${PACKAGE_TO_USE}; Valid options are: 'bbduk' | 'trimmomatic'"
+        fail_message "Invalid PACKAGE_TO_USE: ${PACKAGE_TO_USE}; Valid options are: 'bbduk', 'trimmomatic'"
         ;;
 esac
 
-# Iterate through preflight checks
-for file in "${PREFLIGHT_ARRAY[@]}" "${TOOL_PREFLIGHT}"; do
-    check_file "${PREFLIGHT_DIR}/${file}" || fail "  Please ensure that preflight script exists: ${file}"
-    check_file_data "${PREFLIGHT_DIR}/${file}" || fail "  Please ensure that preflight script contains data: ${file}"
-    source "${PREFLIGHT_DIR}/${file}"
+for script in "${PREFLIGHT_ARRAY[@]}" "${TOOL_PREFLIGHT}"; do
+    file_check_exists "${PREFLIGHT_DIR}/${script}" || fail_message "Preflight script doesn't exist: ${script}"
+    file_check_nonempty "${PREFLIGHT_DIR}/${script}" || fail_message "Preflight script is empty: ${script}"
+    source "${PREFLIGHT_DIR}/${script}" || fail_message "Preflight script failed: ${script}"
 done
 
-echo
-echo "  ${SCRIPT_NAME} COMPLETE"
+echo "  Preflight scripts complete"
+echo "${SCRIPT_NAME} COMPLETE"

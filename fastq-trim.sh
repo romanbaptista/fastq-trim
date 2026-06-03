@@ -54,6 +54,7 @@ echo "  Submitting pipeline.sh ..."
 PIPELINE_JOB_ID=$(
     sbatch \
         --parsable \
+        --job-name=fastq-trim \
         --export="${SBATCH_EXPORTS}" \
         --output="${LOG_DIR}/pipeline.%j.log" \
         "${PIPELINE_DIR}/pipeline.sh"

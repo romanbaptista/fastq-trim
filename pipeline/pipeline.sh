@@ -45,6 +45,7 @@ case "${PACKAGE_TO_USE}" in
         JOB_ID=$(
             sbatch \
                 --parsable \
+                --job-name=fastq-trim-bbduk \
                 --export="${SBATCH_EXPORTS}" \
                 --cpus-per-task="${BBDUK_CPUS}" \
                 --mem-per-cpu="${BBDUK_MEM_PER_CPU}" \
@@ -58,6 +59,7 @@ case "${PACKAGE_TO_USE}" in
         JOB_ID=$(
             sbatch \
                 --parsable \
+                --job-name=fastq-trim-trimmomatic \
                 --export="${SBATCH_EXPORTS}" \
                 --cpus-per-task="${TRIMMOMATIC_CPUS}" \
                 --mem-per-cpu="${TRIMMOMATIC_MEM_PER_CPU}" \
